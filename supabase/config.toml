@@ -56,3 +56,35 @@ secret = ""
 # [local] 섹션 전체 삭제!
 # [local]
 # enabled = true
+[functions.predict-price]
+enabled = true
+verify_jwt = true
+import_map = "./functions/predict-price/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/predict-price/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/predict-price/*.html" ]
+
+[functions.calculate-match]
+enabled = true
+verify_jwt = true
+import_map = "./functions/calculate-match/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/calculate-match/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/calculate-match/*.html" ]
+
+[functions.predict-performance]
+enabled = true
+verify_jwt = true
+import_map = "./functions/predict-performance/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/predict-performance/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/predict-performance/*.html" ]
