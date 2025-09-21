@@ -1,5 +1,8 @@
+-- ============================================
+-- ITDA 플랫폼 데이터베이스 스키마
+-- ============================================
 
-
+-- 사용자 테이블 (인플루언서 + 광고주)
 CREATE TABLE users (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   email TEXT UNIQUE NOT NULL,
