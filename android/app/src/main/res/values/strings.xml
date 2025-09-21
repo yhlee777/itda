@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">itda</string>
+    <string name="title_activity_main">itda</string>
+    <string name="package_name">com.itda.app</string>
+    <string name="custom_url_scheme">com.itda.app</string>
+</resources>
