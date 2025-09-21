@@ -1,6 +1,4 @@
 # supabase/config.toml
-# Supabase 프로젝트 설정 파일
-
 project_id = "itda-app"
 
 [api]
@@ -13,11 +11,11 @@ max_rows = 1000
 [db]
 port = 54322
 major_version = 15
-pooler_enabled = false
+# pooler_enabled = false  # ← 이 줄 삭제!
 
-[db.pooler]
-default_pool_size = 20
-max_client_conn = 100
+# [db.pooler]  # 필요시 이 섹션도 주석처리
+# default_pool_size = 20
+# max_client_conn = 100
 
 [realtime]
 enabled = true
@@ -55,6 +53,6 @@ enabled = false
 client_id = ""
 secret = ""
 
-# 로컬 개발용 설정
-[local]
-enabled = true
+# [local] 섹션 전체 삭제!
+# [local]
+# enabled = true

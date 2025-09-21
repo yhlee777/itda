@@ -1,3 +1,5 @@
+'use client';  // 👈 이 줄을 맨 첫 줄에 추가!
+
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
