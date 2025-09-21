@@ -1,394 +1,89 @@
+'use client';
 
+import { useState, useEffect } from 'react';
+import { useAIMatching } from '@/hooks/useAIMatching';
+import { supabase } from '@/lib/supabase';
 
-CREATE TABLE users (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  email TEXT UNIQUE NOT NULL,
-  phone TEXT UNIQUE,
-  user_type TEXT CHECK (user_type IN ('influencer', 'advertiser', 'admin')),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
+export default function DashboardPage() {
+  const [campaigns, setCampaigns] = useState([]);
+  const { runMatching, matches, isLoading } = useAIMatching();
 
--- 인플루언서 프로필
-CREATE TABLE influencers (
-  id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  username TEXT UNIQUE NOT NULL,
-  avatar TEXT,
-  bio TEXT,
-  categories TEXT[] DEFAULT '{}',
-  followers_count INTEGER DEFAULT 0,
-  following_count INTEGER DEFAULT 0,
-  posts_count INTEGER DEFAULT 0,
-  engagement_rate DECIMAL(5,2) DEFAULT 0,
-  
-  -- 오디언스 정보
-  audience_demographics JSONB DEFAULT '{}',
-  
-  -- 성과 지표
-  average_likes INTEGER DEFAULT 0,
-  average_comments INTEGER DEFAULT 0,
-  average_reach INTEGER DEFAULT 0,
-  
-  -- 가용성
-  availability JSONB DEFAULT '{"status": "immediate"}',
-  
-  -- 등급 및 검증
-  tier TEXT DEFAULT 'standard' CHECK (tier IN ('standard', 'gold', 'premium')),
-  is_verified BOOLEAN DEFAULT false,
-  verification_date TIMESTAMP WITH TIME ZONE,
-  
-  -- 성장률
-  growth_rate DECIMAL(5,2) DEFAULT 0,
-  content_quality_score DECIMAL(3,1) DEFAULT 0,
-  
-  -- 결제 정보
-  bank_account JSONB,
-  
-  -- 통계
-  total_campaigns INTEGER DEFAULT 0,
-  total_earnings DECIMAL(12,2) DEFAULT 0,
-  average_rating DECIMAL(3,2) DEFAULT 0,
-  
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
+  useEffect(() => {
+    loadCampaigns();
+  }, []);
 
--- 광고주 프로필
-CREATE TABLE advertisers (
-  id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-  company_name TEXT NOT NULL,
-  company_logo TEXT,
-  industry TEXT,
-  website TEXT,
-  description TEXT,
-  
-  -- 담당자 정보
-  contact_name TEXT,
-  contact_position TEXT,
-  contact_phone TEXT,
-  
-  -- 사업자 정보
-  business_registration TEXT,
-  is_verified BOOLEAN DEFAULT false,
-  
-  -- 통계
-  total_campaigns INTEGER DEFAULT 0,
-  total_spend DECIMAL(12,2) DEFAULT 0,
-  average_roi DECIMAL(5,2) DEFAULT 0,
-  
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
+  const loadCampaigns = async () => {
+    const { data, error } = await supabase
+      .from('campaigns')
+      .select('*')
+      .order('created_at', { ascending: false });
 
--- 캠페인
-CREATE TABLE campaigns (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  advertiser_id UUID REFERENCES advertisers(id) ON DELETE CASCADE,
-  
-  -- 기본 정보
-  name TEXT NOT NULL,
-  description TEXT,
-  objectives TEXT[],
-  categories TEXT[],
-  
-  -- 예산 및 기간
-  budget DECIMAL(12,2) NOT NULL,
-  spent DECIMAL(12,2) DEFAULT 0,
-  start_date DATE NOT NULL,
-  end_date DATE NOT NULL,
-  
-  -- 타겟 설정
-  target_audience JSONB DEFAULT '{}',
-  min_followers INTEGER DEFAULT 0,
-  min_engagement_rate DECIMAL(5,2) DEFAULT 0,
-  
-  -- 요구사항
-  deliverables JSONB DEFAULT '[]',
-  requirements TEXT[],
-  
-  -- 상태
-  status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'active', 'matching', 'in_progress', 'completed', 'cancelled')),
-  
-  -- 성과 지표
-  impressions INTEGER DEFAULT 0,
-  clicks INTEGER DEFAULT 0,
-  conversions INTEGER DEFAULT 0,
-  revenue DECIMAL(12,2) DEFAULT 0,
-  
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
+    if (!error) {
+      setCampaigns(data || []);
+    }
+  };
 
--- 캠페인-인플루언서 매칭
-CREATE TABLE campaign_influencers (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  campaign_id UUID REFERENCES campaigns(id) ON DELETE CASCADE,
-  influencer_id UUID REFERENCES influencers(id) ON DELETE CASCADE,
-  
-  -- 매칭 정보
-  match_score DECIMAL(5,2),
-  match_details JSONB,
-  
-  -- 상태
-  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected', 'in_progress', 'completed')),
-  
-  -- 계약 조건
-  agreed_price DECIMAL(12,2),
-  deliverables JSONB,
-  
-  -- 날짜
-  matched_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  accepted_at TIMESTAMP WITH TIME ZONE,
-  started_at TIMESTAMP WITH TIME ZONE,
-  completed_at TIMESTAMP WITH TIME ZONE,
-  
-  -- 성과
-  content_links JSONB DEFAULT '[]',
-  performance_metrics JSONB DEFAULT '{}',
-  rating DECIMAL(3,2),
-  review TEXT,
-  
-  UNIQUE(campaign_id, influencer_id)
-);
+  const handleRunMatching = async (campaignId: string) => {
+    const result = await runMatching(campaignId, {
+      minFollowers: 10000,
+      minEngagement: 3.0
+    });
 
--- 매칭 히스토리
-CREATE TABLE matching_history (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  campaign_id UUID REFERENCES campaigns(id) ON DELETE CASCADE,
-  matched_influencers JSONB NOT NULL,
-  filters_used JSONB,
-  total_analyzed INTEGER,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
+    if (result) {
+      alert(`매칭 완료! ${result.matches.length}명의 인플루언서를 찾았습니다.`);
+    }
+  };
 
--- 거절된 매칭
-CREATE TABLE rejected_matches (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  campaign_id UUID REFERENCES campaigns(id) ON DELETE CASCADE,
-  influencer_id UUID REFERENCES influencers(id) ON DELETE CASCADE,
-  reason TEXT,
-  rejected_by TEXT CHECK (rejected_by IN ('advertiser', 'influencer')),
-  rejected_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
+  return (
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-6">광고주 대시보드</h1>
+      
+      {/* 캠페인 목록 */}
+      <div className="grid gap-4">
+        {campaigns.map((campaign: any) => (
+          <div key={campaign.id} className="bg-white p-4 rounded-lg shadow">
+            <h3 className="font-semibold">{campaign.name}</h3>
+            <p className="text-gray-600 text-sm mb-3">{campaign.description}</p>
+            <button
+              onClick={() => handleRunMatching(campaign.id)}
+              disabled={isLoading}
+              className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 disabled:bg-gray-400"
+            >
+              {isLoading ? 'AI 매칭 중...' : 'AI 매칭 시작'}
+            </button>
+          </div>
+        ))}
+      </div>
 
--- 캠페인 메트릭 (실시간 업데이트용)
-CREATE TABLE campaign_metrics (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  campaign_id UUID REFERENCES campaigns(id) ON DELETE CASCADE,
-  date DATE NOT NULL,
-  
-  -- 일일 메트릭
-  impressions INTEGER DEFAULT 0,
-  clicks INTEGER DEFAULT 0,
-  conversions INTEGER DEFAULT 0,
-  spend DECIMAL(12,2) DEFAULT 0,
-  revenue DECIMAL(12,2) DEFAULT 0,
-  
-  -- 소셜 메트릭
-  likes INTEGER DEFAULT 0,
-  comments INTEGER DEFAULT 0,
-  shares INTEGER DEFAULT 0,
-  saves INTEGER DEFAULT 0,
-  
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(campaign_id, date)
-);
-
--- 캠페인 활동 로그
-CREATE TABLE campaign_activities (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  campaign_id UUID REFERENCES campaigns(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES users(id),
-  
-  type TEXT NOT NULL, -- 'content_posted', 'milestone_reached', 'influencer_joined', etc.
-  message TEXT NOT NULL,
-  metadata JSONB,
-  
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- 정산
-CREATE TABLE settlements (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  campaign_id UUID REFERENCES campaigns(id) ON DELETE CASCADE,
-  influencer_id UUID REFERENCES influencers(id) ON DELETE CASCADE,
-  
-  amount DECIMAL(12,2) NOT NULL,
-  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed')),
-  
-  -- 정산 내역
-  deliverables_completed JSONB,
-  performance_bonus DECIMAL(12,2) DEFAULT 0,
-  deductions DECIMAL(12,2) DEFAULT 0,
-  final_amount DECIMAL(12,2),
-  
-  -- 거래 정보
-  transaction_id TEXT,
-  payment_method TEXT,
-  
-  -- 날짜
-  due_date DATE,
-  processed_at TIMESTAMP WITH TIME ZONE,
-  
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- 알림
-CREATE TABLE notifications (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  
-  type TEXT NOT NULL,
-  title TEXT NOT NULL,
-  message TEXT NOT NULL,
-  metadata JSONB,
-  
-  is_read BOOLEAN DEFAULT false,
-  read_at TIMESTAMP WITH TIME ZONE,
-  
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- 메시지
-CREATE TABLE messages (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  campaign_id UUID REFERENCES campaigns(id) ON DELETE CASCADE,
-  sender_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  recipient_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  
-  content TEXT NOT NULL,
-  attachments JSONB,
-  
-  is_read BOOLEAN DEFAULT false,
-  read_at TIMESTAMP WITH TIME ZONE,
-  
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- 인플루언서 과거 캠페인 (성과 분석용)
-CREATE TABLE past_campaigns (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  influencer_id UUID REFERENCES influencers(id) ON DELETE CASCADE,
-  
-  campaign_name TEXT,
-  brand_name TEXT,
-  campaign_date DATE,
-  
-  -- 성과 지표
-  roi DECIMAL(5,2),
-  completion_rate DECIMAL(5,2),
-  rating DECIMAL(3,2),
-  
-  -- 상세 메트릭
-  impressions INTEGER,
-  engagement INTEGER,
-  conversions INTEGER,
-  
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- ============================================
--- 인덱스
--- ============================================
-
--- 사용자 인덱스
-CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_users_phone ON users(phone);
-CREATE INDEX idx_users_type ON users(user_type);
-
--- 인플루언서 인덱스
-CREATE INDEX idx_influencers_username ON influencers(username);
-CREATE INDEX idx_influencers_categories ON influencers USING GIN(categories);
-CREATE INDEX idx_influencers_followers ON influencers(followers_count);
-CREATE INDEX idx_influencers_engagement ON influencers(engagement_rate);
-CREATE INDEX idx_influencers_tier ON influencers(tier);
-
--- 캠페인 인덱스
-CREATE INDEX idx_campaigns_advertiser ON campaigns(advertiser_id);
-CREATE INDEX idx_campaigns_status ON campaigns(status);
-CREATE INDEX idx_campaigns_categories ON campaigns USING GIN(categories);
-CREATE INDEX idx_campaigns_dates ON campaigns(start_date, end_date);
-
--- 매칭 인덱스
-CREATE INDEX idx_campaign_influencers_campaign ON campaign_influencers(campaign_id);
-CREATE INDEX idx_campaign_influencers_influencer ON campaign_influencers(influencer_id);
-CREATE INDEX idx_campaign_influencers_status ON campaign_influencers(status);
-
--- 메트릭 인덱스
-CREATE INDEX idx_campaign_metrics_campaign_date ON campaign_metrics(campaign_id, date);
-
--- 알림 인덱스
-CREATE INDEX idx_notifications_user ON notifications(user_id);
-CREATE INDEX idx_notifications_unread ON notifications(user_id, is_read);
-
--- ============================================
--- 트리거
--- ============================================
-
--- Updated_at 자동 업데이트 함수
-CREATE OR REPLACE FUNCTION update_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = CURRENT_TIMESTAMP;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
--- 각 테이블에 트리거 적용
-CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-
-CREATE TRIGGER update_influencers_updated_at BEFORE UPDATE ON influencers
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-
-CREATE TRIGGER update_advertisers_updated_at BEFORE UPDATE ON advertisers
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-
-CREATE TRIGGER update_campaigns_updated_at BEFORE UPDATE ON campaigns
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-
--- ============================================
--- RLS (Row Level Security) 정책
--- ============================================
-
--- 모든 테이블에 RLS 활성화
-ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE influencers ENABLE ROW LEVEL SECURITY;
-ALTER TABLE advertisers ENABLE ROW LEVEL SECURITY;
-ALTER TABLE campaigns ENABLE ROW LEVEL SECURITY;
-ALTER TABLE campaign_influencers ENABLE ROW LEVEL SECURITY;
-ALTER TABLE settlements ENABLE ROW LEVEL SECURITY;
-ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
-ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
-
--- 사용자는 자신의 데이터만 볼 수 있음
-CREATE POLICY "Users can view own data" ON users
-  FOR SELECT USING (auth.uid() = id);
-
-CREATE POLICY "Users can update own data" ON users
-  FOR UPDATE USING (auth.uid() = id);
-
--- 인플루언서 프로필은 모두 볼 수 있음 (공개 프로필)
-CREATE POLICY "Public influencer profiles" ON influencers
-  FOR SELECT USING (true);
-
--- 자신의 프로필만 수정 가능
-CREATE POLICY "Influencers can update own profile" ON influencers
-  FOR UPDATE USING (auth.uid() = id);
-
--- 캠페인은 활성 상태인 것만 공개
-CREATE POLICY "Public active campaigns" ON campaigns
-  FOR SELECT USING (status IN ('active', 'matching', 'in_progress'));
-
--- 광고주는 자신의 모든 캠페인 관리 가능
-CREATE POLICY "Advertisers manage own campaigns" ON campaigns
-  FOR ALL USING (auth.uid() = advertiser_id);
-
--- 알림은 수신자만 볼 수 있음
-CREATE POLICY "Users view own notifications" ON notifications
-  FOR SELECT USING (auth.uid() = user_id);
-
--- 메시지는 발신자와 수신자만 볼 수 있음
-CREATE POLICY "Users view own messages" ON messages
-  FOR SELECT USING (auth.uid() IN (sender_id, recipient_id));
+      {/* 매칭 결과 */}
+      {matches.length > 0 && (
+        <div className="mt-8">
+          <h2 className="text-xl font-semibold mb-4">매칭 결과</h2>
+          <div className="grid gap-3">
+            {matches.map((match: any) => (
+              <div key={match.id} className="bg-gray-50 p-3 rounded-lg">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h4 className="font-medium">{match.name}</h4>
+                    <p className="text-sm text-gray-600">
+                      팔로워: {match.followers_count.toLocaleString()} | 
+                      참여율: {match.engagement_rate}%
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-lg font-bold text-purple-600">
+                      {match.matchScore}점
+                    </div>
+                    <button className="text-sm text-blue-600 hover:underline">
+                      프로필 보기
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

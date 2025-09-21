@@ -1,18 +1,46 @@
--- ============================================
--- ITDA 플랫폼 데이터베이스 스키마
--- ============================================
+-- supabase/migrations/001_initial_schema.sql
 
--- 사용자 테이블 (인플루언서 + 광고주)
+-- UUID 확장 활성화
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- ============================================
+-- 사용자 테이블
+-- ============================================
 CREATE TABLE users (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   email TEXT UNIQUE NOT NULL,
-  phone TEXT UNIQUE,
+  phone TEXT,
   user_type TEXT CHECK (user_type IN ('influencer', 'advertiser', 'admin')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 인플루언서 프로필
+-- ============================================
+-- 광고주 테이블 (개선됨)
+-- ============================================
+CREATE TABLE advertisers (
+  id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  company_name TEXT NOT NULL,
+  business_registration TEXT UNIQUE NOT NULL,
+  contact_name TEXT NOT NULL,
+  contact_position TEXT NOT NULL,
+  contact_phone TEXT,
+  website TEXT,
+  industry TEXT,
+  marketing_budget TEXT,
+  company_logo TEXT,
+  description TEXT,
+  is_verified BOOLEAN DEFAULT false,
+  verified_at TIMESTAMP WITH TIME ZONE,
+  verified_by UUID REFERENCES users(id),
+  rejection_reason TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ============================================
+-- 인플루언서 테이블 (개선됨)
+-- ============================================
 CREATE TABLE influencers (
   id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
@@ -53,38 +81,20 @@ CREATE TABLE influencers (
   total_earnings DECIMAL(12,2) DEFAULT 0,
   average_rating DECIMAL(3,2) DEFAULT 0,
   
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- 광고주 프로필
-CREATE TABLE advertisers (
-  id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-  company_name TEXT NOT NULL,
-  company_logo TEXT,
-  industry TEXT,
-  website TEXT,
-  description TEXT,
-  
-  -- 담당자 정보
-  contact_name TEXT,
-  contact_position TEXT,
-  contact_phone TEXT,
-  
-  -- 사업자 정보
-  business_registration TEXT,
-  is_verified BOOLEAN DEFAULT false,
-  
-  -- 통계
-  total_campaigns INTEGER DEFAULT 0,
-  total_spend DECIMAL(12,2) DEFAULT 0,
-  average_roi DECIMAL(5,2) DEFAULT 0,
+  -- 소셜미디어 플랫폼 정보 (추가됨)
+  status TEXT DEFAULT 'active',
+  main_platform TEXT,
+  instagram_username TEXT,
+  youtube_channel TEXT,
+  tiktok_username TEXT,
   
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 캠페인
+-- ============================================
+-- 캠페인 테이블
+-- ============================================
 CREATE TABLE campaigns (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   advertiser_id UUID REFERENCES advertisers(id) ON DELETE CASCADE,
@@ -92,8 +102,8 @@ CREATE TABLE campaigns (
   -- 기본 정보
   name TEXT NOT NULL,
   description TEXT,
-  objectives TEXT[],
-  categories TEXT[],
+  objectives TEXT[] DEFAULT '{}',
+  categories TEXT[] DEFAULT '{}',
   
   -- 예산 및 기간
   budget DECIMAL(12,2) NOT NULL,
@@ -108,7 +118,7 @@ CREATE TABLE campaigns (
   
   -- 요구사항
   deliverables JSONB DEFAULT '[]',
-  requirements TEXT[],
+  requirements TEXT[] DEFAULT '{}',
   
   -- 상태
   status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'active', 'matching', 'in_progress', 'completed', 'cancelled')),
@@ -123,7 +133,9 @@ CREATE TABLE campaigns (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- ============================================
 -- 캠페인-인플루언서 매칭
+-- ============================================
 CREATE TABLE campaign_influencers (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   campaign_id UUID REFERENCES campaigns(id) ON DELETE CASCADE,
@@ -155,7 +167,9 @@ CREATE TABLE campaign_influencers (
   UNIQUE(campaign_id, influencer_id)
 );
 
+-- ============================================
 -- 매칭 히스토리
+-- ============================================
 CREATE TABLE matching_history (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   campaign_id UUID REFERENCES campaigns(id) ON DELETE CASCADE,
@@ -165,79 +179,9 @@ CREATE TABLE matching_history (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 거절된 매칭
-CREATE TABLE rejected_matches (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  campaign_id UUID REFERENCES campaigns(id) ON DELETE CASCADE,
-  influencer_id UUID REFERENCES influencers(id) ON DELETE CASCADE,
-  reason TEXT,
-  rejected_by TEXT CHECK (rejected_by IN ('advertiser', 'influencer')),
-  rejected_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- 캠페인 메트릭 (실시간 업데이트용)
-CREATE TABLE campaign_metrics (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  campaign_id UUID REFERENCES campaigns(id) ON DELETE CASCADE,
-  date DATE NOT NULL,
-  
-  -- 일일 메트릭
-  impressions INTEGER DEFAULT 0,
-  clicks INTEGER DEFAULT 0,
-  conversions INTEGER DEFAULT 0,
-  spend DECIMAL(12,2) DEFAULT 0,
-  revenue DECIMAL(12,2) DEFAULT 0,
-  
-  -- 소셜 메트릭
-  likes INTEGER DEFAULT 0,
-  comments INTEGER DEFAULT 0,
-  shares INTEGER DEFAULT 0,
-  saves INTEGER DEFAULT 0,
-  
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(campaign_id, date)
-);
-
--- 캠페인 활동 로그
-CREATE TABLE campaign_activities (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  campaign_id UUID REFERENCES campaigns(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES users(id),
-  
-  type TEXT NOT NULL, -- 'content_posted', 'milestone_reached', 'influencer_joined', etc.
-  message TEXT NOT NULL,
-  metadata JSONB,
-  
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- 정산
-CREATE TABLE settlements (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  campaign_id UUID REFERENCES campaigns(id) ON DELETE CASCADE,
-  influencer_id UUID REFERENCES influencers(id) ON DELETE CASCADE,
-  
-  amount DECIMAL(12,2) NOT NULL,
-  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed')),
-  
-  -- 정산 내역
-  deliverables_completed JSONB,
-  performance_bonus DECIMAL(12,2) DEFAULT 0,
-  deductions DECIMAL(12,2) DEFAULT 0,
-  final_amount DECIMAL(12,2),
-  
-  -- 거래 정보
-  transaction_id TEXT,
-  payment_method TEXT,
-  
-  -- 날짜
-  due_date DATE,
-  processed_at TIMESTAMP WITH TIME ZONE,
-  
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
+-- ============================================
 -- 알림
+-- ============================================
 CREATE TABLE notifications (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID REFERENCES users(id) ON DELETE CASCADE,
@@ -253,52 +197,17 @@ CREATE TABLE notifications (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 메시지
-CREATE TABLE messages (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  campaign_id UUID REFERENCES campaigns(id) ON DELETE CASCADE,
-  sender_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  recipient_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  
-  content TEXT NOT NULL,
-  attachments JSONB,
-  
-  is_read BOOLEAN DEFAULT false,
-  read_at TIMESTAMP WITH TIME ZONE,
-  
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- 인플루언서 과거 캠페인 (성과 분석용)
-CREATE TABLE past_campaigns (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  influencer_id UUID REFERENCES influencers(id) ON DELETE CASCADE,
-  
-  campaign_name TEXT,
-  brand_name TEXT,
-  campaign_date DATE,
-  
-  -- 성과 지표
-  roi DECIMAL(5,2),
-  completion_rate DECIMAL(5,2),
-  rating DECIMAL(3,2),
-  
-  -- 상세 메트릭
-  impressions INTEGER,
-  engagement INTEGER,
-  conversions INTEGER,
-  
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
 -- ============================================
--- 인덱스
+-- 인덱스 생성
 -- ============================================
 
 -- 사용자 인덱스
 CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_users_phone ON users(phone);
-CREATE INDEX idx_users_type ON users(user_type);
+CREATE INDEX idx_users_user_type ON users(user_type);
+
+-- 광고주 인덱스
+CREATE INDEX idx_advertisers_is_verified ON advertisers(is_verified);
+CREATE INDEX idx_advertisers_business_registration ON advertisers(business_registration);
 
 -- 인플루언서 인덱스
 CREATE INDEX idx_influencers_username ON influencers(username);
@@ -306,6 +215,7 @@ CREATE INDEX idx_influencers_categories ON influencers USING GIN(categories);
 CREATE INDEX idx_influencers_followers ON influencers(followers_count);
 CREATE INDEX idx_influencers_engagement ON influencers(engagement_rate);
 CREATE INDEX idx_influencers_tier ON influencers(tier);
+CREATE INDEX idx_influencers_status ON influencers(status);
 
 -- 캠페인 인덱스
 CREATE INDEX idx_campaigns_advertiser ON campaigns(advertiser_id);
@@ -318,15 +228,12 @@ CREATE INDEX idx_campaign_influencers_campaign ON campaign_influencers(campaign_
 CREATE INDEX idx_campaign_influencers_influencer ON campaign_influencers(influencer_id);
 CREATE INDEX idx_campaign_influencers_status ON campaign_influencers(status);
 
--- 메트릭 인덱스
-CREATE INDEX idx_campaign_metrics_campaign_date ON campaign_metrics(campaign_id, date);
-
 -- 알림 인덱스
 CREATE INDEX idx_notifications_user ON notifications(user_id);
 CREATE INDEX idx_notifications_unread ON notifications(user_id, is_read);
 
 -- ============================================
--- 트리거
+-- 트리거 함수
 -- ============================================
 
 -- Updated_at 자동 업데이트 함수
@@ -361,9 +268,7 @@ ALTER TABLE influencers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE advertisers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE campaigns ENABLE ROW LEVEL SECURITY;
 ALTER TABLE campaign_influencers ENABLE ROW LEVEL SECURITY;
-ALTER TABLE settlements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
-ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 
 -- 사용자는 자신의 데이터만 볼 수 있음
 CREATE POLICY "Users can view own data" ON users
@@ -391,7 +296,3 @@ CREATE POLICY "Advertisers manage own campaigns" ON campaigns
 -- 알림은 수신자만 볼 수 있음
 CREATE POLICY "Users view own notifications" ON notifications
   FOR SELECT USING (auth.uid() = user_id);
-
--- 메시지는 발신자와 수신자만 볼 수 있음
-CREATE POLICY "Users view own messages" ON messages
-  FOR SELECT USING (auth.uid() IN (sender_id, recipient_id));
