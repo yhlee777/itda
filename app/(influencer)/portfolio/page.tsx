@@ -1,491 +1,455 @@
-// app/(influencer)/portfolio/page.tsx
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useRouter } from 'next/navigation';
 import { 
-  Home, Bell, User, Trophy, Grid3X3, List, Filter, Search,
-  Eye, Heart, MessageCircle, Share2, Lock, Globe, ChevronDown,
-  Calendar, DollarSign, TrendingUp, Award, Settings, X, Check,
-  Instagram, Youtube, Play, Image as ImageIcon, BarChart3, ArrowUpRight,
-  Star, Sparkles, ChevronLeft, MoreVertical, Bookmark, ExternalLink,
-  Camera, Video, FileText, Users, Clock, MapPin, Verified
+  User, Settings, Bell, Shield, CreditCard, Award,
+  ChevronRight, Edit3, Instagram, Youtube, Twitter,
+  Users, TrendingUp, Flame, Star, Trophy, 
+  BarChart2, Calendar, DollarSign, Camera,
+  LogOut, HelpCircle, FileText, Moon,
+  Grid3X3, Play, Heart, MessageCircle, Eye,
+  Lock, Unlock, MoreVertical, ArrowLeft
 } from 'lucide-react';
 
-interface PortfolioItem {
-  id: string;
-  campaignName: string;
-  brand: string;
-  brandLogo?: string;
-  completedDate: string;
-  category: string;
-  media: {
-    type: 'image' | 'video';
-    url: string;
-    thumbnail?: string;
-  }[];
-  stats: {
-    views: number;
-    likes: number;
-    comments: number;
-    shares: number;
-    engagement: number;
-  };
-  earnings: number;
-  deliverables: string[];
-  platform: 'instagram' | 'youtube' | 'blog' | 'tiktok';
-  isPublic: boolean;
-  tags: string[];
-  isVerified?: boolean;
-}
-
-export default function PortfolioPage() {
-  const router = useRouter();
-  const [selectedFilter, setSelectedFilter] = useState('all');
-  const [selectedItem, setSelectedItem] = useState<PortfolioItem | null>(null);
-  const [showFilters, setShowFilters] = useState(false);
-  const bottomSheetRef = useRef<HTMLDivElement>(null);
-  
-  // 포트폴리오 데이터 (기존 데이터 활용)
-  const [portfolioItems] = useState<PortfolioItem[]>([
+export default function ProfilePage() {
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'portfolio' | 'settings'>('dashboard');
+  const [portfolioItems, setPortfolioItems] = useState([
     {
       id: '1',
-      campaignName: '에어맥스 2024',
+      campaign: '나이키 에어맥스',
       brand: '나이키',
-      brandLogo: '👟',
-      completedDate: '2024.01.15',
-      category: '패션',
-      media: [
-        { type: 'image', url: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff' },
-        { type: 'video', url: '#', thumbnail: 'https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa' }
-      ],
-      stats: {
-        views: 125000,
-        likes: 8900,
-        comments: 234,
-        shares: 56,
-        engagement: 7.2
-      },
-      earnings: 5000000,
-      deliverables: ['피드 3', '릴스 2', '스토리 5'],
-      platform: 'instagram',
+      image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff',
+      likes: 8900,
+      views: 125000,
+      date: '2024.01.15',
       isPublic: true,
-      tags: ['스니커즈', '패션', '나이키'],
-      isVerified: true
+      hasVideo: false
     },
     {
-      id: '2',
-      campaignName: '여름 시즌 음료',
-      brand: '스타벅스',
-      brandLogo: '☕',
-      completedDate: '2024.01.20',
-      category: 'F&B',
-      media: [
-        { type: 'image', url: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93' }
-      ],
-      stats: {
-        views: 89000,
-        likes: 6200,
-        comments: 189,
-        shares: 34,
-        engagement: 6.9
-      },
-      earnings: 2000000,
-      deliverables: ['릴스 1', '스토리 3'],
-      platform: 'instagram',
+      id: '2', 
+      campaign: '샤넬 뷰티',
+      brand: '샤넬',
+      image: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9',
+      likes: 12300,
+      views: 189000,
+      date: '2024.01.20',
       isPublic: true,
-      tags: ['카페', '음료'],
-      isVerified: false
+      hasVideo: true
     },
     {
       id: '3',
-      campaignName: 'Z플립5 리뷰',
-      brand: '삼성전자',
-      brandLogo: '📱',
-      completedDate: '2024.01.10',
-      category: '테크',
-      media: [
-        { type: 'video', url: '#', thumbnail: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9' }
-      ],
-      stats: {
-        views: 210000,
-        likes: 12300,
-        comments: 567,
-        shares: 123,
-        engagement: 5.8
-      },
-      earnings: 8000000,
-      deliverables: ['유튜브 1', '피드 2'],
-      platform: 'youtube',
+      campaign: '스타벅스 여름',
+      brand: '스타벅스',
+      image: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93',
+      likes: 6200,
+      views: 89000,
+      date: '2024.01.25',
       isPublic: false,
-      tags: ['테크', '갤럭시']
+      hasVideo: false
     }
   ]);
 
-  const categories = ['all', '패션', '뷰티', 'F&B', '테크', '라이프', '스포츠'];
-  
+  const profileData = {
+    name: '김인플',
+    username: '@kim_style',
+    bio: '패션과 라이프스타일을 사랑하는 크리에이터 ✨',
+    profileImage: 'https://via.placeholder.com/150',
+    tier: 'gold',
+    isVerified: true,
+    followers: 125000,
+    following: 892,
+    posts: 1283
+  };
+
+  const stats = {
+    totalCampaigns: 42,
+    totalEarnings: 15420000,
+    avgEngagement: 4.8,
+    avgRating: 4.9,
+    completedThisMonth: 5,
+    pendingPayments: 3200000
+  };
+
   const formatNumber = (num: number) => {
-    if (num >= 1000000) return `${(num/1000000).toFixed(1)}M`;
-    if (num >= 1000) return `${(num/1000).toFixed(1)}K`;
+    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
     return num.toString();
   };
 
-  const formatCurrency = (num: number) => {
-    return `₩${(num/1000000).toFixed(1)}M`;
-  };
-
-  const filteredItems = portfolioItems.filter(item => 
-    selectedFilter === 'all' || item.category === selectedFilter
-  );
-
-  // 총 통계 계산
-  const totalStats = {
-    campaigns: portfolioItems.length,
-    totalEarnings: portfolioItems.reduce((sum, item) => sum + item.earnings, 0),
-    avgEngagement: portfolioItems.reduce((sum, item) => sum + item.stats.engagement, 0) / portfolioItems.length,
-    totalViews: portfolioItems.reduce((sum, item) => sum + item.stats.views, 0)
-  };
-
-  const getPlatformIcon = (platform: string) => {
-    switch(platform) {
-      case 'instagram': return <Instagram size={14} />;
-      case 'youtube': return <Youtube size={14} />;
-      case 'tiktok': return '🎵';
-      default: return <Camera size={14} />;
-    }
+  const togglePortfolioPrivacy = (itemId: string) => {
+    setPortfolioItems(prev => 
+      prev.map(item => 
+        item.id === itemId ? { ...item, isPublic: !item.isPublic } : item
+      )
+    );
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-purple-50 via-white to-gray-50 pb-20">
-      {/* 모바일 헤더 */}
-      <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b">
-        <div className="px-4 py-3">
-          <div className="flex items-center justify-between">
-            <h1 className="text-xl font-bold text-gray-900">내 포트폴리오</h1>
-            <div className="flex items-center gap-2">
-              <button 
-                onClick={() => setShowFilters(!showFilters)}
-                className="p-2 hover:bg-gray-100 rounded-xl transition-colors relative"
-              >
-                <Filter size={20} />
-                {selectedFilter !== 'all' && (
-                  <span className="absolute -top-1 -right-1 w-2 h-2 bg-purple-600 rounded-full"></span>
-                )}
-              </button>
-              <button className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
-                <Settings size={20} />
-              </button>
+    <div className="min-h-screen bg-gray-50">
+      {/* 프로필 헤더 */}
+      <div className="bg-gradient-to-br from-purple-600 to-pink-600 pt-8 pb-4">
+        <div className="px-4">
+          {/* 상단 액션 버튼 */}
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-white text-xl font-bold">프로필</h2>
+            <button className="p-2 bg-white/20 rounded-lg">
+              <Settings className="w-5 h-5 text-white" />
+            </button>
+          </div>
+
+          {/* 프로필 정보 */}
+          <div className="text-center mb-6">
+            <div className="relative inline-block mb-4">
+              <img 
+                src={profileData.profileImage} 
+                alt="프로필"
+                className="w-24 h-24 rounded-full border-4 border-white"
+              />
+              {profileData.tier === 'gold' && (
+                <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center">
+                  <Trophy className="w-5 h-5 text-white" />
+                </div>
+              )}
             </div>
+            
+            <h3 className="text-white text-xl font-bold flex items-center justify-center gap-2">
+              {profileData.name}
+              {profileData.isVerified && (
+                <span className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
+                  <Star className="w-3 h-3 text-white fill-white" />
+                </span>
+              )}
+            </h3>
+            <p className="text-white/80 text-sm mb-2">{profileData.username}</p>
+            <p className="text-white/90 text-sm mb-4">{profileData.bio}</p>
+
+            {/* 팔로워 통계 */}
+            <div className="flex items-center justify-center gap-6 mb-4">
+              <div className="text-center">
+                <p className="text-white font-bold text-lg">{formatNumber(profileData.posts)}</p>
+                <p className="text-white/70 text-xs">게시물</p>
+              </div>
+              <div className="text-center">
+                <p className="text-white font-bold text-lg">{formatNumber(profileData.followers)}</p>
+                <p className="text-white/70 text-xs">팔로워</p>
+              </div>
+              <div className="text-center">
+                <p className="text-white font-bold text-lg">{formatNumber(profileData.following)}</p>
+                <p className="text-white/70 text-xs">팔로잉</p>
+              </div>
+            </div>
+
+            {/* 프로필 편집 버튼 */}
+            <button className="px-6 py-2 bg-white text-purple-600 rounded-full font-medium text-sm">
+              프로필 편집
+            </button>
           </div>
         </div>
+      </div>
 
-        {/* 필터 섹션 */}
-        <AnimatePresence>
-          {showFilters && (
+      {/* 탭 네비게이션 */}
+      <div className="bg-white border-b sticky top-0 z-20">
+        <div className="flex">
+          <button
+            onClick={() => setActiveTab('dashboard')}
+            className={`flex-1 py-3 text-center font-medium transition-all ${
+              activeTab === 'dashboard' 
+                ? 'text-purple-600 border-b-2 border-purple-600' 
+                : 'text-gray-500'
+            }`}
+          >
+            <BarChart2 className="w-5 h-5 mx-auto mb-1" />
+            <span className="text-xs">대시보드</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('portfolio')}
+            className={`flex-1 py-3 text-center font-medium transition-all ${
+              activeTab === 'portfolio' 
+                ? 'text-purple-600 border-b-2 border-purple-600' 
+                : 'text-gray-500'
+            }`}
+          >
+            <Grid3X3 className="w-5 h-5 mx-auto mb-1" />
+            <span className="text-xs">포트폴리오</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('settings')}
+            className={`flex-1 py-3 text-center font-medium transition-all ${
+              activeTab === 'settings' 
+                ? 'text-purple-600 border-b-2 border-purple-600' 
+                : 'text-gray-500'
+            }`}
+          >
+            <Settings className="w-5 h-5 mx-auto mb-1" />
+            <span className="text-xs">설정</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 탭 컨텐츠 */}
+      <div className="p-4">
+        <AnimatePresence mode="wait">
+          {/* 대시보드 탭 */}
+          {activeTab === 'dashboard' && (
             <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="border-t bg-white overflow-hidden"
+              key="dashboard"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="space-y-4"
             >
-              <div className="px-4 py-3">
-                <div className="flex gap-2 overflow-x-auto scrollbar-hide">
-                  {categories.map(category => (
+              {/* 이번 달 실적 */}
+              <div className="bg-white rounded-xl p-4 shadow-sm">
+                <h3 className="font-bold text-gray-900 mb-3">이번 달 실적</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-purple-50 rounded-lg p-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Trophy className="w-4 h-4 text-purple-600" />
+                      <span className="text-xs text-gray-600">완료 캠페인</span>
+                    </div>
+                    <p className="text-xl font-bold text-gray-900">{stats.completedThisMonth}</p>
+                  </div>
+                  <div className="bg-green-50 rounded-lg p-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <DollarSign className="w-4 h-4 text-green-600" />
+                      <span className="text-xs text-gray-600">이번 달 수익</span>
+                    </div>
+                    <p className="text-xl font-bold text-gray-900">
+                      {(stats.pendingPayments / 1000000).toFixed(1)}M
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* 전체 통계 */}
+              <div className="bg-white rounded-xl p-4 shadow-sm">
+                <h3 className="font-bold text-gray-900 mb-3">전체 통계</h3>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600 text-sm">총 캠페인</span>
+                    <span className="font-bold">{stats.totalCampaigns}개</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600 text-sm">총 수익</span>
+                    <span className="font-bold">₩{stats.totalEarnings.toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600 text-sm">평균 참여율</span>
+                    <span className="font-bold">{stats.avgEngagement}%</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600 text-sm">평균 평점</span>
+                    <div className="flex items-center gap-1">
+                      <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+                      <span className="font-bold">{stats.avgRating}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 퀵 액션 */}
+              <div className="bg-white rounded-xl p-4 shadow-sm">
+                <h3 className="font-bold text-gray-900 mb-3">빠른 메뉴</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <button className="p-3 bg-gray-50 rounded-lg text-left">
+                    <CreditCard className="w-5 h-5 text-purple-600 mb-2" />
+                    <p className="text-sm font-medium">정산 내역</p>
+                  </button>
+                  <button className="p-3 bg-gray-50 rounded-lg text-left">
+                    <Award className="w-5 h-5 text-purple-600 mb-2" />
+                    <p className="text-sm font-medium">리뷰 관리</p>
+                  </button>
+                  <button className="p-3 bg-gray-50 rounded-lg text-left">
+                    <Calendar className="w-5 h-5 text-purple-600 mb-2" />
+                    <p className="text-sm font-medium">일정 관리</p>
+                  </button>
+                  <button className="p-3 bg-gray-50 rounded-lg text-left">
+                    <TrendingUp className="w-5 h-5 text-purple-600 mb-2" />
+                    <p className="text-sm font-medium">성과 분석</p>
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* 포트폴리오 탭 */}
+          {activeTab === 'portfolio' && (
+            <motion.div
+              key="portfolio"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+            >
+              {/* 포트폴리오 설정 */}
+              <div className="bg-white rounded-xl p-4 mb-4 shadow-sm">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-bold text-gray-900">포트폴리오</h3>
+                  <button className="text-purple-600 text-sm font-medium">
+                    편집
+                  </button>
+                </div>
+                <p className="text-sm text-gray-600 mb-3">
+                  완료한 캠페인 작업물을 관리하세요
+                </p>
+                <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
+                  <span className="text-sm font-medium text-purple-900">
+                    공개 포트폴리오: {portfolioItems.filter(item => item.isPublic).length}개
+                  </span>
+                  <span className="text-sm text-purple-600">
+                    비공개: {portfolioItems.filter(item => !item.isPublic).length}개
+                  </span>
+                </div>
+              </div>
+
+              {/* 포트폴리오 그리드 */}
+              <div className="grid grid-cols-3 gap-1">
+                {portfolioItems.map(item => (
+                  <div key={item.id} className="relative aspect-square">
+                    {/* 이미지 */}
+                    <img 
+                      src={item.image} 
+                      alt={item.campaign}
+                      className="w-full h-full object-cover"
+                    />
+                    
+                    {/* 오버레이 정보 */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 hover:opacity-100 transition-opacity">
+                      <div className="absolute bottom-2 left-2 right-2">
+                        <p className="text-white text-xs font-medium truncate">
+                          {item.campaign}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <div className="flex items-center gap-1">
+                            <Eye className="w-3 h-3 text-white" />
+                            <span className="text-white text-xs">{formatNumber(item.views)}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Heart className="w-3 h-3 text-white" />
+                            <span className="text-white text-xs">{formatNumber(item.likes)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 비디오 인디케이터 */}
+                    {item.hasVideo && (
+                      <div className="absolute top-2 right-2">
+                        <Play className="w-5 h-5 text-white drop-shadow-lg" fill="white" />
+                      </div>
+                    )}
+
+                    {/* 공개/비공개 토글 */}
                     <button
-                      key={category}
-                      onClick={() => {
-                        setSelectedFilter(category);
-                        setShowFilters(false);
-                      }}
-                      className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
-                        selectedFilter === category
-                          ? 'bg-purple-600 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
+                      onClick={() => togglePortfolioPrivacy(item.id)}
+                      className="absolute top-2 left-2 p-1.5 bg-black/50 rounded-lg backdrop-blur-sm"
                     >
-                      {category === 'all' ? '전체' : category}
+                      {item.isPublic ? (
+                        <Unlock className="w-4 h-4 text-white" />
+                      ) : (
+                        <Lock className="w-4 h-4 text-white" />
+                      )}
                     </button>
-                  ))}
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+
+          {/* 설정 탭 */}
+          {activeTab === 'settings' && (
+            <motion.div
+              key="settings"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="space-y-4"
+            >
+              {/* 계정 설정 */}
+              <div className="bg-white rounded-xl shadow-sm">
+                <div className="p-4 border-b">
+                  <h3 className="font-bold text-gray-900">계정 설정</h3>
+                </div>
+                <div className="divide-y">
+                  <button className="w-full p-4 flex items-center justify-between hover:bg-gray-50">
+                    <div className="flex items-center gap-3">
+                      <Instagram className="w-5 h-5 text-gray-600" />
+                      <span className="text-sm">Instagram 연동</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-green-600">연결됨</span>
+                      <ChevronRight className="w-4 h-4 text-gray-400" />
+                    </div>
+                  </button>
+                  <button className="w-full p-4 flex items-center justify-between hover:bg-gray-50">
+                    <div className="flex items-center gap-3">
+                      <Youtube className="w-5 h-5 text-gray-600" />
+                      <span className="text-sm">YouTube 연동</span>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                  </button>
+                  <button className="w-full p-4 flex items-center justify-between hover:bg-gray-50">
+                    <div className="flex items-center gap-3">
+                      <CreditCard className="w-5 h-5 text-gray-600" />
+                      <span className="text-sm">정산 계좌</span>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                  </button>
+                </div>
+              </div>
+
+              {/* 알림 설정 */}
+              <div className="bg-white rounded-xl shadow-sm">
+                <div className="p-4 border-b">
+                  <h3 className="font-bold text-gray-900">알림 설정</h3>
+                </div>
+                <div className="divide-y">
+                  <button className="w-full p-4 flex items-center justify-between hover:bg-gray-50">
+                    <div className="flex items-center gap-3">
+                      <Bell className="w-5 h-5 text-gray-600" />
+                      <span className="text-sm">푸시 알림</span>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                  </button>
+                  <button className="w-full p-4 flex items-center justify-between hover:bg-gray-50">
+                    <div className="flex items-center gap-3">
+                      <Shield className="w-5 h-5 text-gray-600" />
+                      <span className="text-sm">개인정보 설정</span>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                  </button>
+                </div>
+              </div>
+
+              {/* 기타 */}
+              <div className="bg-white rounded-xl shadow-sm">
+                <div className="divide-y">
+                  <button className="w-full p-4 flex items-center justify-between hover:bg-gray-50">
+                    <div className="flex items-center gap-3">
+                      <HelpCircle className="w-5 h-5 text-gray-600" />
+                      <span className="text-sm">도움말</span>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                  </button>
+                  <button className="w-full p-4 flex items-center justify-between hover:bg-gray-50">
+                    <div className="flex items-center gap-3">
+                      <FileText className="w-5 h-5 text-gray-600" />
+                      <span className="text-sm">이용약관</span>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                  </button>
+                  <button className="w-full p-4 flex items-center justify-between hover:bg-gray-50">
+                    <div className="flex items-center gap-3">
+                      <LogOut className="w-5 h-5 text-red-600" />
+                      <span className="text-sm text-red-600">로그아웃</span>
+                    </div>
+                  </button>
                 </div>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
-
-      {/* 프로필 & 통계 카드 - 모바일 최적화 */}
-      <div className="px-4 py-6">
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl shadow-sm p-5 mb-6"
-        >
-          {/* 프로필 섹션 */}
-          <div className="flex items-center gap-4 mb-4">
-            <div className="relative">
-              <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
-                J
-              </div>
-              <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 border-2 border-white rounded-full flex items-center justify-center">
-                <Check size={12} className="text-white" />
-              </div>
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold text-gray-900">@jiyeon_style</h2>
-                <Verified className="w-4 h-4 text-blue-500 fill-blue-500" />
-              </div>
-              <p className="text-sm text-gray-600">패션 & 라이프스타일</p>
-              <div className="flex items-center gap-3 mt-1">
-                <span className="text-xs text-gray-500">팔로워 42.3K</span>
-                <span className="text-xs text-gray-500">참여율 7.2%</span>
-              </div>
-            </div>
-          </div>
-
-          {/* 통계 그리드 - 2x2 모바일 최적화 */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-purple-50 rounded-xl p-3">
-              <div className="flex items-center gap-2 mb-1">
-                <Trophy className="w-4 h-4 text-purple-600" />
-                <span className="text-xs text-gray-600">완료 캠페인</span>
-              </div>
-              <p className="text-xl font-bold text-gray-900">{totalStats.campaigns}</p>
-            </div>
-            <div className="bg-green-50 rounded-xl p-3">
-              <div className="flex items-center gap-2 mb-1">
-                <DollarSign className="w-4 h-4 text-green-600" />
-                <span className="text-xs text-gray-600">총 수익</span>
-              </div>
-              <p className="text-xl font-bold text-gray-900">{formatCurrency(totalStats.totalEarnings)}</p>
-            </div>
-            <div className="bg-blue-50 rounded-xl p-3">
-              <div className="flex items-center gap-2 mb-1">
-                <Eye className="w-4 h-4 text-blue-600" />
-                <span className="text-xs text-gray-600">총 조회수</span>
-              </div>
-              <p className="text-xl font-bold text-gray-900">{formatNumber(totalStats.totalViews)}</p>
-            </div>
-            <div className="bg-orange-50 rounded-xl p-3">
-              <div className="flex items-center gap-2 mb-1">
-                <TrendingUp className="w-4 h-4 text-orange-600" />
-                <span className="text-xs text-gray-600">평균 참여율</span>
-              </div>
-              <p className="text-xl font-bold text-gray-900">{totalStats.avgEngagement.toFixed(1)}%</p>
-            </div>
-          </div>
-
-          {/* 공유 버튼 */}
-          <button className="w-full mt-4 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-medium text-sm flex items-center justify-center gap-2 shadow-sm">
-            <Share2 size={16} />
-            포트폴리오 공유하기
-          </button>
-        </motion.div>
-
-        {/* 포트폴리오 아이템 - 카드 스타일 */}
-        <div className="space-y-4">
-          {filteredItems.map((item, index) => (
-            <motion.div
-              key={item.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-              onClick={() => setSelectedItem(item)}
-              className="bg-white rounded-2xl overflow-hidden shadow-sm active:scale-[0.98] transition-transform cursor-pointer"
-            >
-              {/* 미디어 섹션 */}
-              <div className="relative aspect-[4/3] bg-gray-100">
-                <img
-                  src={item.media[0].type === 'video' ? item.media[0].thumbnail : item.media[0].url}
-                  alt={item.campaignName}
-                  className="w-full h-full object-cover"
-                />
-                {item.media[0].type === 'video' && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-12 h-12 bg-black/50 rounded-full flex items-center justify-center">
-                      <Play className="w-6 h-6 text-white ml-0.5" fill="white" />
-                    </div>
-                  </div>
-                )}
-                {item.media.length > 1 && (
-                  <div className="absolute top-3 right-3 bg-black/50 text-white text-xs px-2 py-1 rounded-lg flex items-center gap-1">
-                    <ImageIcon size={12} />
-                    +{item.media.length - 1}
-                  </div>
-                )}
-                {!item.isPublic && (
-                  <div className="absolute top-3 left-3 bg-black/50 text-white p-1.5 rounded-lg">
-                    <Lock size={14} />
-                  </div>
-                )}
-              </div>
-
-              {/* 콘텐츠 섹션 */}
-              <div className="p-4">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-lg">{item.brandLogo}</span>
-                      <h3 className="font-bold text-gray-900">{item.brand}</h3>
-                      {item.isVerified && <Verified className="w-4 h-4 text-blue-500 fill-blue-500" />}
-                    </div>
-                    <p className="text-sm text-gray-600">{item.campaignName}</p>
-                  </div>
-                  <div className="flex items-center gap-1 px-2 py-1 bg-gray-100 rounded-lg">
-                    {getPlatformIcon(item.platform)}
-                    <span className="text-xs text-gray-600">{item.platform}</span>
-                  </div>
-                </div>
-
-                {/* 통계 - 가로 스크롤 */}
-                <div className="flex gap-4 overflow-x-auto scrollbar-hide mb-3">
-                  <div className="flex items-center gap-1.5">
-                    <Eye className="w-4 h-4 text-gray-400" />
-                    <span className="text-sm font-medium">{formatNumber(item.stats.views)}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Heart className="w-4 h-4 text-red-400" />
-                    <span className="text-sm font-medium">{formatNumber(item.stats.likes)}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <MessageCircle className="w-4 h-4 text-gray-400" />
-                    <span className="text-sm font-medium">{formatNumber(item.stats.comments)}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 px-2 py-1 bg-green-50 rounded-lg">
-                    <TrendingUp className="w-4 h-4 text-green-600" />
-                    <span className="text-sm font-bold text-green-600">{item.stats.engagement}%</span>
-                  </div>
-                </div>
-
-                {/* 하단 정보 */}
-                <div className="flex items-center justify-between pt-3 border-t">
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
-                    <Calendar size={14} />
-                    {item.completedDate}
-                  </div>
-                  <div className="font-bold text-purple-600">
-                    {formatCurrency(item.earnings)}
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-
-      {/* 상세 보기 바텀시트 */}
-      <AnimatePresence>
-        {selectedItem && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/50"
-            onClick={() => setSelectedItem(null)}
-          >
-            <motion.div
-              ref={bottomSheetRef}
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 30 }}
-              className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl max-h-[85vh] overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* 핸들 */}
-              <div className="p-4">
-                <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-4" />
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-bold">{selectedItem.campaignName}</h2>
-                  <button onClick={() => setSelectedItem(null)}>
-                    <X size={24} />
-                  </button>
-                </div>
-              </div>
-
-              {/* 스크롤 가능한 콘텐츠 */}
-              <div className="px-4 pb-8 overflow-y-auto max-h-[70vh]">
-                {/* 미디어 갤러리 */}
-                <div className="flex gap-2 overflow-x-auto scrollbar-hide mb-6">
-                  {selectedItem.media.map((media, idx) => (
-                    <div key={idx} className="relative w-48 h-48 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
-                      <img
-                        src={media.type === 'video' ? media.thumbnail : media.url}
-                        alt=""
-                        className="w-full h-full object-cover"
-                      />
-                      {media.type === 'video' && (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <Play className="w-8 h-8 text-white" fill="white" />
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                {/* 상세 통계 */}
-                <div className="bg-gray-50 rounded-xl p-4 mb-6">
-                  <h3 className="font-bold text-gray-900 mb-3">성과 분석</h3>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <p className="text-xs text-gray-600 mb-1">조회수</p>
-                      <p className="text-lg font-bold">{formatNumber(selectedItem.stats.views)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-600 mb-1">좋아요</p>
-                      <p className="text-lg font-bold">{formatNumber(selectedItem.stats.likes)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-600 mb-1">댓글</p>
-                      <p className="text-lg font-bold">{formatNumber(selectedItem.stats.comments)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-600 mb-1">참여율</p>
-                      <p className="text-lg font-bold text-green-600">{selectedItem.stats.engagement}%</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 제작 콘텐츠 */}
-                <div className="mb-6">
-                  <h3 className="font-bold text-gray-900 mb-3">제작 콘텐츠</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedItem.deliverables.map((item, idx) => (
-                      <span key={idx} className="px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg text-sm">
-                        {item}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 태그 */}
-                <div className="mb-6">
-                  <h3 className="font-bold text-gray-900 mb-3">태그</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedItem.tags.map((tag, idx) => (
-                      <span key={idx} className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-sm">
-                        #{tag}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 액션 버튼들 */}
-                <div className="flex gap-3">
-                  <button className="flex-1 py-3 bg-purple-600 text-white rounded-xl font-medium flex items-center justify-center gap-2">
-                    <ExternalLink size={18} />
-                    콘텐츠 보기
-                  </button>
-                  <button className="py-3 px-4 bg-gray-100 text-gray-700 rounded-xl">
-                    <Share2 size={18} />
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

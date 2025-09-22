@@ -186,91 +186,94 @@ export default function CreateCampaignPage() {
 
   // 캠페인 제출
   const submitCampaign = async () => {
-    setIsSubmitting(true);
-    
-    try {
-      // 1. 이미지 업로드
-      let imageUrl = '';
-      if (campaignData.image) {
-        const fileName = `campaigns/${Date.now()}_${campaignData.image.name}`;
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('campaign-images')
-          .upload(fileName, campaignData.image);
-        
-        if (uploadError) throw uploadError;
-        
-        const { data: { publicUrl } } = supabase.storage
-          .from('campaign-images')
-          .getPublicUrl(uploadData.path);
-        
-        imageUrl = publicUrl;
-      }
+  setIsSubmitting(true);
+  const supabase = createClient();
+  
+  try {
+    // 1. 이미지 업로드 (기존 코드 유지)
+    let imageUrl = '';
+    if (campaignData.image) {
+      const fileName = `campaigns/${Date.now()}_${campaignData.image.name}`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('campaign-images')
+        .upload(fileName, campaignData.image);
       
-      // 2. 광고주 ID 가져오기
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('사용자 정보를 찾을 수 없습니다');
+      if (uploadError) throw uploadError;
       
-      // 3. 캠페인 데이터 준비
-      const campaignPayload = {
-        advertiser_id: user.id,
-        name: campaignData.title,
-        description: campaignData.description,
-        categories: [campaignData.category],
-        budget: campaignData.budgetType === 'fixed' 
-          ? parseFloat(campaignData.budget) 
-          : parseFloat(campaignData.budgetMax),
-        start_date: campaignData.startDate,
-        end_date: campaignData.endDate,
-        target_audience: campaignData.targetAudience,
-        min_followers: campaignData.minFollowers,
-        min_engagement_rate: campaignData.minEngagementRate,
-        deliverables: campaignData.deliverables,
-        requirements: campaignData.requirements,
-        status: 'active',
-        // SwipeCard에서 사용하는 추가 필드들 (메타데이터로 저장)
-        metadata: {
-          brand: campaignData.brand,
-          image: imageUrl,
-          location: campaignData.location,
-          urgency: campaignData.urgency,
-          isPremium: campaignData.isPremium,
-          tags: campaignData.tags,
-          budgetRange: campaignData.budgetType === 'range' 
-            ? `${campaignData.budgetMin}-${campaignData.budgetMax}만원`
-            : `${campaignData.budget}만원`,
-          matchBonus: campaignData.matchBonus,
-          autoMatch: campaignData.autoMatch
-        }
-      };
+      const { data: { publicUrl } } = supabase.storage
+        .from('campaign-images')
+        .getPublicUrl(uploadData.path);
       
-      // 4. 캠페인 생성
-      const { data, error } = await supabase
-        .from('campaigns')
-        .insert(campaignPayload)
-        .select()
-        .single();
-      
-      if (error) throw error;
-      
-      // 5. 프리미엄 캠페인인 경우 추가 처리
-      if (campaignData.isPremium) {
-        // 프리미엄 알림 전송 등
-        toast.success('프리미엄 캠페인이 생성되었습니다! 🚀');
-      } else {
-        toast.success('캠페인이 성공적으로 생성되었습니다!');
-      }
-      
-      // 6. 대시보드로 이동
-      router.push('/dashboard');
-      
-    } catch (error) {
-      console.error('Campaign creation error:', error);
-      toast.error('캠페인 생성에 실패했습니다');
-    } finally {
-      setIsSubmitting(false);
+      imageUrl = publicUrl;
     }
-  };
-
+    
+    // 2. 광고주 ID 가져오기 (기존 코드 유지)
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('사용자 정보를 찾을 수 없습니다');
+    
+    // 3. ⚠️ 이 부분을 아래 코드로 교체! ⚠️
+    const campaignPayload = {
+      advertiser_id: user.id,
+      name: campaignData.title || '',
+      description: campaignData.description || '',
+      objectives: [],  // 빈 배열로 설정
+      categories: campaignData.category ? [campaignData.category] : [],
+      budget: Number(campaignData.budget) || 0,  // 숫자로 변환
+      spent: 0,
+      start_date: campaignData.startDate || new Date().toISOString(),
+      end_date: campaignData.endDate || new Date().toISOString(),
+      target_audience: {},  // 빈 객체로 설정
+      min_followers: Number(campaignData.minFollowers) || 10000,
+      min_engagement_rate: Number(campaignData.minEngagementRate) || 2.0,
+      deliverables: [],  // 빈 배열로 설정
+      requirements: campaignData.requirements || [],
+      status: 'active' as const,
+      impressions: 0,
+      clicks: 0,
+      conversions: 0,
+      revenue: 0,
+      metadata: {
+        brand: campaignData.brand || '',
+        image: imageUrl,
+        location: campaignData.location || '전국',
+        urgency: campaignData.urgency || 'medium',
+        isPremium: campaignData.isPremium || false,
+        tags: campaignData.tags || []
+      },
+      view_count: 0,
+      like_count: 0,
+      application_count: 0,
+      is_premium: Boolean(campaignData.isPremium),
+      urgency: (campaignData.urgency || 'medium') as 'high' | 'medium' | 'low'
+    };
+    
+    // 4. 캠페인 생성 (기존 코드 유지)
+    const { data, error } = await supabase
+      .from('campaigns')
+      .insert(campaignPayload)
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('Campaign creation error:', error);
+      throw error;
+    }
+    
+    // 5. 성공 처리 (기존 코드 유지)
+    if (data) {
+      toast.success('캠페인이 성공적으로 생성되었습니다!');
+      setTimeout(() => {
+        router.push('/dashboard');
+      }, 1500);
+    }
+    
+  } catch (error: any) {
+    console.error('Campaign submission error:', error);
+    toast.error(error.message || '캠페인 생성에 실패했습니다');
+  } finally {
+    setIsSubmitting(false);
+  }
+};
   // 예산 포맷팅
   const formatBudget = (value: string) => {
     const num = parseInt(value.replace(/[^0-9]/g, ''));
