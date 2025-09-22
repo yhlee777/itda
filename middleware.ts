@@ -1,66 +1,65 @@
-// middleware.ts 전체 수정
+// middleware.ts - 완전히 수정된 버전
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs';
 
 export async function middleware(request: NextRequest) {
+  const res = NextResponse.next();
+  const supabase = createMiddlewareClient({ req: request, res });
+  
   const { pathname } = request.nextUrl;
   
-  // 공개 경로 (인증 없이 접근 가능)
-  const publicPaths = ['/login', '/register', '/signup', '/', '/api'];
-  const isPublicPath = publicPaths.some(path => pathname.startsWith(path));
-  
-  // 정적 파일과 Next.js 내부 경로는 무시
+  // 정적 파일 및 API 경로 무시
   if (
     pathname.includes('_next') ||
     pathname.includes('/api/') ||
-    pathname.includes('.') // 파일 확장자가 있는 경우 (이미지, CSS 등)
+    pathname.includes('.') ||
+    pathname.startsWith('/favicon')
   ) {
-    return NextResponse.next();
+    return res;
   }
   
-  // ✅ Supabase 세션 체크 (쿠키 기반)
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  // 공개 경로 정의
+  const publicPaths = ['/', '/login', '/register', '/signup'];
+  const isPublicPath = publicPaths.includes(pathname);
   
-  if (!supabaseUrl || !supabaseAnonKey) {
-    console.log('Supabase 환경변수 없음');
-    return NextResponse.next();
+  // 세션 확인
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  console.log('Middleware Check:', {
+    path: pathname,
+    hasSession: !!session,
+    isPublicPath
+  });
+  
+  // 보호된 경로 접근 시 로그인 필요
+  if (!session && !isPublicPath) {
+    const redirectUrl = new URL('/login', request.url);
+    redirectUrl.searchParams.set('redirect', pathname);
+    return NextResponse.redirect(redirectUrl);
   }
   
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
-  
-  // 쿠키에서 세션 확인
-  const token = request.cookies.get('sb-dqltbpynoihcyvucofpe-auth-token');
-  
-  console.log('Middleware - Path:', pathname);
-  console.log('Middleware - Token exists:', !!token);
-  console.log('Middleware - Is public path:', isPublicPath);
-  
-  // 보호된 경로인데 토큰이 없으면 로그인으로
-  if (!isPublicPath && !token) {
-    console.log('Middleware - 로그인 필요, /login으로 리다이렉트');
-    return NextResponse.redirect(new URL('/login', request.url));
+  // 로그인 상태에서 인증 페이지 접근 시
+  if (session && (pathname === '/login' || pathname === '/register')) {
+    // 사용자 타입 확인
+    const { data: userData } = await supabase
+      .from('users')
+      .select('user_type')
+      .eq('id', session.user.id)
+      .single();
+    
+    if (userData?.user_type === 'advertiser') {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    } else if (userData?.user_type === 'influencer') {
+      return NextResponse.redirect(new URL('/campaigns', request.url));
+    } else {
+      return NextResponse.redirect(new URL('/onboarding', request.url));
+    }
   }
   
-  // 로그인 상태에서 로그인/회원가입 페이지 접근 시 메인으로
-  if (token && (pathname === '/login' || pathname === '/register' || pathname === '/signup')) {
-    console.log('Middleware - 이미 로그인됨, 메인으로 리다이렉트');
-    return NextResponse.redirect(new URL('/', request.url));
-  }
-  
-  return NextResponse.next();
+  return res;
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
-  ],
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
 };

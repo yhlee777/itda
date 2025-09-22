@@ -1,190 +1,245 @@
-// app/page.tsx - 메인 랜딩 페이지
+// app/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { supabase } from '@/lib/supabase';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, TrendingUp, Users, Zap, ArrowRight, Star } from 'lucide-react';
+import Link from 'next/link';
+import { 
+  Sparkles, Users, Shield, Zap,
+  ArrowRight, CheckCircle, Menu, X
+} from 'lucide-react';
 
-export default function HomePage() {
-  const router = useRouter();
-  const [isLoading, setIsLoading] = useState(true);
+export default function LandingPage() {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  useEffect(() => {
-    checkAuth();
-  }, []);
-
-  const checkAuth = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (session) {
-      // 로그인 상태면 사용자 타입에 따라 리다이렉트
-      const { data: userData } = await supabase
-        .from('users')
-        .select('user_type')
-        .eq('id', session.user.id)
-        .single() as any;
-
-      if (userData?.user_type === 'influencer') {
-        router.push('/campaigns');
-      } else if (userData?.user_type === 'advertiser') {
-        router.push('/dashboard');
-      }
+  const features = [
+    {
+      icon: Zap,
+      title: '빠른 매칭',
+      description: '스와이프로 즉시 연결'
+    },
+    {
+      icon: Shield,
+      title: '안전한 거래',
+      description: '검증된 시스템으로 보호'
+    },
+    {
+      icon: Users,
+      title: 'AI 추천',
+      description: '완벽한 파트너 매칭'
     }
-    
-    setIsLoading(false);
-  };
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
-      </div>
-    );
-  }
+  ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400">
-      {/* Hero Section */}
-      <div className="container mx-auto px-6 py-20">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
-          className="text-center text-white"
-        >
-          <h1 className="text-6xl font-bold mb-6">ITDA</h1>
-          <p className="text-2xl mb-8">인플루언서와 브랜드를 잇다</p>
+    <div className="min-h-screen bg-white">
+      {/* 심플 네비게이션 */}
+      <nav className="fixed w-full z-50 bg-white/90 backdrop-blur-sm border-b">
+        <div className="container mx-auto px-4">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-7 h-7 text-purple-600" />
+              <span className="text-xl font-bold">ITDA</span>
+            </div>
+
+            <div className="hidden md:flex items-center gap-6">
+              <Link href="/login" className="text-gray-600 hover:text-gray-900 text-sm">
+                로그인
+              </Link>
+              <Link href="/register">
+                <button className="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full text-sm font-medium hover:shadow-lg transform hover:scale-105 transition-all">
+                  시작하기
+                </button>
+              </Link>
+            </div>
+
+            <button
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="md:hidden p-2"
+            >
+              {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
+          </div>
+        </div>
+
+        {/* 모바일 메뉴 */}
+        {isMenuOpen && (
+          <div className="md:hidden bg-white border-t">
+            <div className="container mx-auto px-4 py-4 space-y-3">
+              <Link href="/register" className="block">
+                <button className="w-full px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full font-medium">
+                  무료로 시작하기
+                </button>
+              </Link>
+              <Link href="/login" className="block text-center py-2 text-gray-600 text-sm">
+                이미 계정이 있으신가요? 로그인
+              </Link>
+            </div>
+          </div>
+        )}
+      </nav>
+
+      {/* 히어로 섹션 - 심플 */}
+      <section className="pt-32 pb-20 px-4">
+        <div className="container mx-auto max-w-4xl">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center"
+          >
+            {/* 메인 타이틀 */}
+            <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
+              인플루언서 마케팅
+              <span className="block text-purple-600">더 쉽게, 더 빠르게</span>
+            </h1>
+            
+            <p className="text-lg md:text-xl text-gray-600 mb-10 max-w-2xl mx-auto">
+              복잡한 과정 없이 AI가 최적의 파트너를 매칭해드립니다.
+              지금 시작하고 성과를 경험하세요.
+            </p>
+            
+            {/* CTA 버튼 - 하나만 가운데 */}
+            <div className="flex justify-center mb-12">
+              <Link href="/register">
+                <button className="px-10 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full font-semibold text-lg hover:shadow-xl transform hover:scale-105 transition-all flex items-center gap-2">
+                  무료로 시작하기
+                  <ArrowRight className="w-5 h-5" />
+                </button>
+              </Link>
+            </div>
+
+            {/* 간단한 통계 */}
+            <div className="flex items-center justify-center gap-8 text-sm text-gray-600">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-green-500" />
+                <span>50K+ 활성 사용자</span>
+              </div>
+              <div className="hidden sm:flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-green-500" />
+                <span>98% 매칭 성공률</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-green-500" />
+                <span>수수료 0%</span>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* 핵심 기능 - 컴팩트 */}
+      <section className="py-16 bg-gray-50">
+        <div className="container mx-auto px-4 max-w-4xl">
+          <h2 className="text-2xl md:text-3xl font-bold text-center mb-12">
+            왜 ITDA인가요?
+          </h2>
           
-          {/* 특징 */}
-          <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto mb-12">
-            <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-6">
-              <Sparkles className="w-12 h-12 mx-auto mb-4" />
-              <h3 className="font-bold text-lg mb-2">AI 매칭</h3>
-              <p className="text-sm">스마트한 인플루언서 추천</p>
-            </div>
-            <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-6">
-              <TrendingUp className="w-12 h-12 mx-auto mb-4" />
-              <h3 className="font-bold text-lg mb-2">실시간 분석</h3>
-              <p className="text-sm">캠페인 성과 즉시 확인</p>
-            </div>
-            <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-6">
-              <Users className="w-12 h-12 mx-auto mb-4" />
-              <h3 className="font-bold text-lg mb-2">10만+ 인플루언서</h3>
-              <p className="text-sm">다양한 분야의 크리에이터</p>
-            </div>
+          <div className="grid md:grid-cols-3 gap-8">
+            {features.map((feature, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                viewport={{ once: true }}
+                className="text-center"
+              >
+                <div className="w-14 h-14 bg-purple-100 rounded-xl flex items-center justify-center mx-auto mb-4">
+                  <feature.icon className="w-7 h-7 text-purple-600" />
+                </div>
+                <h3 className="font-semibold text-lg mb-2">{feature.title}</h3>
+                <p className="text-gray-600 text-sm">{feature.description}</p>
+              </motion.div>
+            ))}
           </div>
+        </div>
+      </section>
 
-          {/* CTA 버튼들 */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              href="/register"
-              className="inline-flex items-center justify-center px-8 py-4 bg-white text-purple-600 rounded-full font-bold text-lg hover:shadow-2xl transition-all transform hover:scale-105"
-            >
+      {/* 사용자 타입 선택 */}
+      <section className="py-16 bg-white">
+        <div className="container mx-auto px-4 max-w-3xl">
+          <h2 className="text-2xl md:text-3xl font-bold text-center mb-12">
+            어떤 분이신가요?
+          </h2>
+          
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* 인플루언서 카드 */}
+            <Link href="/register?type=influencer">
+              <motion.div
+                whileHover={{ y: -5 }}
+                className="p-6 border-2 border-gray-200 rounded-xl hover:border-purple-400 cursor-pointer transition-all h-full"
+              >
+                <div className="text-4xl mb-4">📸</div>
+                <h3 className="text-xl font-bold mb-2">인플루언서</h3>
+                <p className="text-gray-600 text-sm mb-4">
+                  브랜드와 협업하고 수익을 창출하세요
+                </p>
+                <ul className="space-y-2 text-sm text-gray-600">
+                  <li>✓ 간편한 캠페인 지원</li>
+                  <li>✓ 실시간 매칭</li>
+                  <li>✓ 안전한 정산</li>
+                </ul>
+              </motion.div>
+            </Link>
+
+            {/* 광고주 카드 */}
+            <Link href="/register?type=advertiser">
+              <motion.div
+                whileHover={{ y: -5 }}
+                className="p-6 border-2 border-gray-200 rounded-xl hover:border-purple-400 cursor-pointer transition-all h-full"
+              >
+                <div className="text-4xl mb-4">🏢</div>
+                <h3 className="text-xl font-bold mb-2">광고주</h3>
+                <p className="text-gray-600 text-sm mb-4">
+                  완벽한 인플루언서를 찾아보세요
+                </p>
+                <ul className="space-y-2 text-sm text-gray-600">
+                  <li>✓ AI 추천 시스템</li>
+                  <li>✓ 실시간 성과 분석</li>
+                  <li>✓ 간편한 계약</li>
+                </ul>
+              </motion.div>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* 심플 CTA */}
+      <section className="py-20 bg-gradient-to-br from-purple-50 to-pink-50">
+        <div className="container mx-auto px-4 text-center">
+          <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4">
+            지금 바로 시작하세요
+          </h2>
+          <p className="text-gray-600 mb-8">
+            복잡한 절차 없이 1분 만에 가입 완료
+          </p>
+          <Link href="/register">
+            <button className="px-10 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full font-semibold text-lg hover:shadow-xl transform hover:scale-105 transition-all inline-flex items-center gap-2">
               무료로 시작하기
-              <ArrowRight className="ml-2 w-5 h-5" />
-            </Link>
-            <Link
-              href="/login"
-              className="inline-flex items-center justify-center px-8 py-4 bg-transparent border-2 border-white text-white rounded-full font-bold text-lg hover:bg-white hover:text-purple-600 transition-all"
-            >
-              로그인
-            </Link>
-          </div>
+              <ArrowRight className="w-5 h-5" />
+            </button>
+          </Link>
+        </div>
+      </section>
 
-          {/* 신뢰 지표 */}
-          <div className="mt-12 flex items-center justify-center gap-8 text-white/80">
-            <div className="flex items-center gap-2">
-              <Star className="w-5 h-5 fill-current" />
-              <span>4.8/5.0 평점</span>
+      {/* 미니멀 푸터 */}
+      <footer className="py-8 bg-gray-900">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col md:flex-row items-center justify-between">
+            <div className="flex items-center gap-2 mb-4 md:mb-0">
+              <Sparkles className="w-5 h-5 text-purple-400" />
+              <span className="text-white font-semibold">ITDA</span>
             </div>
-            <div className="flex items-center gap-2">
-              <Zap className="w-5 h-5" />
-              <span>30초 가입</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Users className="w-5 h-5" />
-              <span>5,000+ 브랜드</span>
+            <div className="flex gap-6 text-sm text-gray-400">
+              <Link href="#" className="hover:text-white">이용약관</Link>
+              <Link href="#" className="hover:text-white">개인정보처리방침</Link>
+              <Link href="#" className="hover:text-white">문의</Link>
             </div>
           </div>
-        </motion.div>
-      </div>
-
-      {/* 사용자 타입 선택 섹션 */}
-      <div className="container mx-auto px-6 pb-20">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5, duration: 0.8 }}
-          className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto"
-        >
-          {/* 인플루언서 카드 */}
-          <div className="bg-white rounded-3xl p-8 shadow-2xl">
-            <div className="text-center mb-6">
-              <div className="text-5xl mb-4">🌟</div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">인플루언서</h2>
-              <p className="text-gray-600">
-                틴더처럼 스와이프하며<br />
-                마음에 드는 캠페인 선택
-              </p>
-            </div>
-            <ul className="space-y-3 mb-6 text-sm text-gray-700">
-              <li className="flex items-center gap-2">
-                <span className="text-green-500">✓</span>
-                AI가 추천하는 맞춤 캠페인
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-green-500">✓</span>
-                간편한 스와이프 지원
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-green-500">✓</span>
-                실시간 수익 정산
-              </li>
-            </ul>
-            <Link
-              href="/register?type=influencer"
-              className="block w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-bold text-center hover:shadow-lg transition-all"
-            >
-              인플루언서로 시작
-            </Link>
+          <div className="text-center text-gray-500 text-xs mt-4">
+            © 2024 ITDA. All rights reserved.
           </div>
-
-          {/* 광고주 카드 */}
-          <div className="bg-white rounded-3xl p-8 shadow-2xl">
-            <div className="text-center mb-6">
-              <div className="text-5xl mb-4">🏢</div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">광고주/브랜드</h2>
-              <p className="text-gray-600">
-                우버처럼 실시간으로<br />
-                인플루언서 매칭 받기
-              </p>
-            </div>
-            <ul className="space-y-3 mb-6 text-sm text-gray-700">
-              <li className="flex items-center gap-2">
-                <span className="text-green-500">✓</span>
-                AI 기반 인플루언서 추천
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-green-500">✓</span>
-                30분마다 실시간 알림
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-green-500">✓</span>
-                단가 예측 & ROI 분석
-              </li>
-            </ul>
-            <Link
-              href="/register?type=advertiser"
-              className="block w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-bold text-center hover:shadow-lg transition-all"
-            >
-              광고주로 시작
-            </Link>
-          </div>
-        </motion.div>
-      </div>
+        </div>
+      </footer>
     </div>
   );
 }
