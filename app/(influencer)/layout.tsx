@@ -15,7 +15,7 @@ export default function InfluencerLayout({
 }) {
   const pathname = usePathname();
 
-  // 메인 네비게이션 아이템 (포트폴리오 제거)
+  // 메인 네비게이션 아이템 - 메시지 링크를 /chat으로 변경
   const navItems = [
     { 
       href: '/campaigns', 
@@ -30,7 +30,7 @@ export default function InfluencerLayout({
       iconActive: Briefcase
     },
     { 
-      href: '/messages', 
+      href: '/chat',  // ✅ /messages → /chat으로 변경
       label: '메시지', 
       icon: MessageCircle,
       iconActive: MessageCircle,
@@ -62,10 +62,10 @@ export default function InfluencerLayout({
               </button>
               
               {/* 알림 버튼 */}
-              <button className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors">
+              <Link href="/notifications" className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors">
                 <Bell className="w-5 h-5 text-gray-600" />
                 <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
-              </button>
+              </Link>
             </div>
           </div>
         </div>
@@ -95,47 +95,34 @@ export default function InfluencerLayout({
                     isActive ? 'scale-110' : 'scale-100'
                   }`}
                 >
-                  {/* 아이콘 컨테이너 */}
                   <div className="relative">
                     <Icon 
                       className={`w-6 h-6 transition-colors ${
-                        isActive 
-                          ? 'text-purple-600' 
-                          : 'text-gray-500'
+                        isActive ? 'text-purple-600' : 'text-gray-500'
                       }`}
-                      fill={isActive ? 'currentColor' : 'none'}
-                      strokeWidth={isActive ? 0 : 2}
                     />
-                    
-                    {/* 배지 (메시지 등) */}
                     {item.badge && (
                       <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
                         {item.badge}
                       </span>
                     )}
                   </div>
-                  
-                  {/* 라벨 */}
                   <span 
                     className={`text-[11px] font-medium transition-colors ${
-                      isActive 
-                        ? 'text-purple-600' 
-                        : 'text-gray-500'
+                      isActive ? 'text-purple-600' : 'text-gray-500'
                     }`}
                   >
                     {item.label}
                   </span>
-                  
-                  {/* Active 인디케이터 (점) */}
                   {isActive && (
-                    <div className="absolute -bottom-1 w-1 h-1 bg-purple-600 rounded-full" />
+                    <span className="absolute -bottom-1 w-1 h-1 bg-purple-600 rounded-full" />
                   )}
                 </Link>
               );
             })}
           </div>
         </div>
-
+        
         {/* iOS 하단 안전 영역 */}
         <div className="h-safe-area-inset-bottom bg-white" />
       </nav>
