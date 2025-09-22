@@ -2,27 +2,19 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
-import ToastProvider from '@/components/providers/ToastProvider';
+import { Toaster } from 'sonner';
 
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'ITDA - 인플루언서와 브랜드를 잇다',
-  description: '인플루언서와 광고주를 연결하는 스마트 매칭 플랫폼',
-  keywords: '인플루언서, 마케팅, 광고, 브랜드, 협업, 캠페인',
+  description: '인플루언서와 브랜드를 연결하는 AI 기반 매칭 플랫폼',
+  keywords: ['인플루언서', '마케팅', '브랜드', '협업', 'SNS'],
   authors: [{ name: 'ITDA Team' }],
-  creator: 'ITDA',
-  publisher: 'ITDA',
-  formatDetection: {
-    email: false,
-    address: false,
-    telephone: false,
-  },
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
   openGraph: {
     title: 'ITDA - 인플루언서와 브랜드를 잇다',
-    description: '인플루언서와 광고주를 연결하는 스마트 매칭 플랫폼',
-    url: '/',
+    description: '인플루언서와 브랜드를 연결하는 AI 기반 매칭 플랫폼',
+    url: 'https://itda.app',
     siteName: 'ITDA',
     images: [
       {
@@ -38,37 +30,25 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'ITDA - 인플루언서와 브랜드를 잇다',
-    description: '인플루언서와 광고주를 연결하는 스마트 매칭 플랫폼',
+    description: '인플루언서와 브랜드를 연결하는 AI 기반 매칭 플랫폼',
     images: ['/og-image.png'],
-    creator: '@itda_official',
   },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      'max-video-preview': -1,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
-    },
+  icons: {
+    icon: [
+      { url: '/favicon.ico' },
+      { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
+      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+    ],
+    apple: [
+      { url: '/apple-touch-icon.png' },
+    ],
   },
+  manifest: '/manifest.json',
   viewport: {
     width: 'device-width',
     initialScale: 1,
     maximumScale: 1,
-    userScalable: false,
   },
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)', color: '#000000' },
-  ],
-  icons: {
-    icon: '/favicon.ico',
-    shortcut: '/favicon-16x16.png',
-    apple: '/apple-touch-icon.png',
-  },
-  manifest: '/manifest.json',
 };
 
 export default function RootLayout({
@@ -77,52 +57,35 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ko" suppressHydrationWarning>
-      <head>
-        {/* PWA 메타 태그 */}
-        <link rel="manifest" href="/manifest.json" />
-        <meta name="application-name" content="ITDA" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="ITDA" />
-        <meta name="mobile-web-app-capable" content="yes" />
-        
-        {/* 스플래시 스크린 이미지 (iOS) */}
-        <link
-          rel="apple-touch-startup-image"
-          href="/splash-640x1136.png"
-          media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2)"
-        />
-        <link
-          rel="apple-touch-startup-image"
-          href="/splash-750x1334.png"
-          media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)"
-        />
-        <link
-          rel="apple-touch-startup-image"
-          href="/splash-1242x2208.png"
-          media="(device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3)"
-        />
-        
-        {/* 추가 SEO */}
-        <meta name="format-detection" content="telephone=no" />
-        <meta name="msapplication-tap-highlight" content="no" />
-      </head>
-      <body className={`${inter.className} antialiased`}>
-        {/* 메인 컨텐츠 */}
+    <html lang="ko">
+      <body className={inter.className}>
         {children}
         
-        {/* Toast 프로바이더 */}
-        <ToastProvider />
-        
-        {/* 개발 환경 인디케이터 */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="fixed bottom-4 left-4 z-50">
-            <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded-full opacity-50 hover:opacity-100 transition-opacity">
-              DEV MODE
-            </div>
-          </div>
-        )}
+        {/* Sonner Toaster - 알림 시스템 */}
+        <Toaster 
+          position="top-right"
+          toastOptions={{
+            // 공통 스타일
+            style: {
+              background: 'white',
+              color: '#363636',
+              border: '1px solid #e5e7eb',
+              borderRadius: '0.75rem',
+              padding: '1rem',
+              boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
+            },
+            className: 'sonner-toast',
+            duration: 4000,
+          }}
+          // 추가 옵션
+          richColors // 타입별 색상 자동 적용
+          expand={false} // 자동 확장 비활성화
+          visibleToasts={5} // 최대 5개 토스트 표시
+          closeButton // 닫기 버튼 표시
+          pauseWhenPageIsHidden // 페이지가 숨겨지면 일시 정지
+          gap={12} // 토스트 간격
+          theme="light" // 테마 설정
+        />
       </body>
     </html>
   );

@@ -1,10 +1,12 @@
 // lib/utils/toast.ts
-import { toast as sonnerToast } from 'sonner';
+import { toast as sonnerToast, ExternalToast } from 'sonner';
+import type { ReactNode, ReactElement } from 'react';
+import { createElement } from 'react';
 
 // 커스텀 토스트 유틸리티
 export const toast = {
   // 성공 토스트
-  success: (message: string, description?: string) => {
+  success: (message: string, description?: string, options?: ExternalToast) => {
     return sonnerToast.success(message, {
       description,
       duration: 3000,
@@ -13,11 +15,12 @@ export const toast = {
         color: 'white',
         border: 'none',
       },
+      ...options,
     });
   },
 
   // 에러 토스트
-  error: (message: string, description?: string) => {
+  error: (message: string, description?: string, options?: ExternalToast) => {
     return sonnerToast.error(message, {
       description,
       duration: 4000,
@@ -26,11 +29,12 @@ export const toast = {
         color: 'white',
         border: 'none',
       },
+      ...options,
     });
   },
 
   // 정보 토스트
-  info: (message: string, description?: string) => {
+  info: (message: string, description?: string, options?: ExternalToast) => {
     return sonnerToast.info(message, {
       description,
       duration: 3000,
@@ -39,11 +43,12 @@ export const toast = {
         color: 'white',
         border: 'none',
       },
+      ...options,
     });
   },
 
   // 경고 토스트
-  warning: (message: string, description?: string) => {
+  warning: (message: string, description?: string, options?: ExternalToast) => {
     return sonnerToast.warning(message, {
       description,
       duration: 3500,
@@ -52,6 +57,7 @@ export const toast = {
         color: 'white',
         border: 'none',
       },
+      ...options,
     });
   },
 
@@ -82,9 +88,16 @@ export const toast = {
     });
   },
 
-  // 커스텀 토스트
-  custom: (jsx: React.ReactNode) => {
-    return sonnerToast.custom(jsx);
+  // 커스텀 토스트 (함수 방식만 지원)
+  custom: (renderFn: (id: string | number) => ReactElement) => {
+    return sonnerToast.custom(renderFn);
+  },
+
+  // 간단한 커스텀 토스트 (ReactNode를 안전하게 처리)
+  customSimple: (content: ReactNode) => {
+    return sonnerToast.custom((id) => 
+      createElement('div', { key: id, children: content })
+    );
   },
 
   // 매칭 성공 알림 (특별한 스타일)
@@ -178,6 +191,7 @@ export const toast = {
 // 사용 예제
 /*
 import { toast } from '@/lib/utils/toast';
+import { createElement } from 'react';
 
 // 기본 사용
 toast.success('성공했습니다!');
@@ -202,16 +216,32 @@ toast.newApplicant(5, 'campaign-123');
 toast.priceUpdate(3500000, 12.5);
 toast.paymentComplete(2500000, '설화수 캠페인');
 
-// 커스텀 JSX
-toast.custom(
-  <div className="bg-white p-4 rounded-lg shadow-lg">
-    <h3 className="font-bold">커스텀 알림</h3>
-    <p>원하는 내용을 자유롭게</p>
-  </div>
+// 커스텀 JSX - 함수 방식
+toast.custom((id) => 
+  createElement('div', {
+    className: 'bg-white p-4 rounded-lg shadow-lg',
+    children: [
+      createElement('h3', { key: 'title', className: 'font-bold' }, '커스텀 알림'),
+      createElement('p', { key: 'content' }, '원하는 내용을 자유롭게'),
+      createElement('button', { 
+        key: 'btn',
+        onClick: () => toast.dismiss(id)
+      }, '닫기')
+    ]
+  })
+);
+
+// 커스텀 JSX - 간단한 방식 (JSX 사용 시)
+toast.customSimple(
+  <>
+    <h3 className="font-bold">특별 알림</h3>
+    <p>간단하게 사용하기</p>
+  </>
 );
 
 // 로딩 상태 업데이트
 const loadingId = toast.loading('처리 중...');
 // 나중에 업데이트
-toast.success('완료!', { id: loadingId });
+toast.dismiss(loadingId);
+toast.success('완료!');
 */

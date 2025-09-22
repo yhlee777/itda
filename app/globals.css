@@ -1,106 +1,312 @@
+/* app/globals.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* 기본 스타일 리셋 */
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 262.1 83.3% 57.8%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 262.1 83.3% 57.8%;
+    --radius: 0.75rem;
+  }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-}
-/* Toast 애니메이션 */
-@keyframes enter {
-  from {
-    opacity: 0;
-    transform: scale(0.9) translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-
-@keyframes leave {
-  from {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-  to {
-    opacity: 0;
-    transform: scale(0.9) translateY(-10px);
-  }
-}
-
-@keyframes slide-in {
-  from {
-    opacity: 0;
-    transform: translateX(100%);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes slide-out {
-  from {
-    opacity: 1;
-    transform: translateX(0);
-  }
-  to {
-    opacity: 0;
-    transform: translateX(100%);
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 263.4 70% 50.4%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 263.4 70% 50.4%;
   }
 }
 
-.animate-enter {
-  animation: enter 0.3s ease-out;
-}
-
-.animate-leave {
-  animation: leave 0.3s ease-in forwards;
-}
-
-.animate-slide-in {
-  animation: slide-in 0.3s ease-out;
-}
-
-.animate-slide-out {
-  animation: slide-out 0.3s ease-in forwards;
-}
-
-/* 추가 유틸리티 애니메이션 */
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
+/* 기본 요소 스타일 */
+@layer base {
+  * {
+    @apply border-border;
   }
-  50% {
-    opacity: 0.5;
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight;
   }
 }
 
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
+/* 커스텀 스크롤바 */
+@layer utilities {
+  /* 웹킷 기반 브라우저 스크롤바 */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
   }
-  to {
-    transform: rotate(360deg);
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-gray-100 dark:bg-gray-800 rounded-full;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-gray-400 dark:bg-gray-600 rounded-full hover:bg-gray-500;
+  }
+
+  /* Firefox 스크롤바 */
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: theme('colors.gray.400') theme('colors.gray.100');
+  }
+
+  .custom-scrollbar.dark {
+    scrollbar-color: theme('colors.gray.600') theme('colors.gray.800');
   }
 }
 
-.animate-pulse {
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+/* 애니메이션 */
+@layer utilities {
+  /* 슬라이드 애니메이션 */
+  .animate-slide-in {
+    animation: slideIn 0.3s ease-out;
+  }
+
+  .animate-slide-out {
+    animation: slideOut 0.3s ease-in;
+  }
+
+  @keyframes slideIn {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes slideOut {
+    from {
+      transform: translateX(0);
+      opacity: 1;
+    }
+    to {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+  }
+
+  /* 페이드 애니메이션 */
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  /* 바운스 애니메이션 */
+  .animate-bounce-in {
+    animation: bounceIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  }
+
+  @keyframes bounceIn {
+    0% {
+      transform: scale(0);
+      opacity: 0;
+    }
+    50% {
+      transform: scale(1.05);
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  /* 펄스 애니메이션 */
+  .animate-pulse-slow {
+    animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
 }
 
-.animate-spin {
-  animation: spin 1s linear infinite;
+/* 그라디언트 배경 */
+@layer utilities {
+  .gradient-purple {
+    @apply bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400;
+  }
+
+  .gradient-blue {
+    @apply bg-gradient-to-br from-blue-500 via-cyan-500 to-teal-400;
+  }
+
+  .gradient-green {
+    @apply bg-gradient-to-br from-green-500 via-emerald-500 to-teal-500;
+  }
+
+  .gradient-premium {
+    @apply bg-gradient-to-br from-yellow-400 via-amber-500 to-orange-500;
+  }
 }
 
-/* 부드러운 전환을 위한 글로벌 설정 */
-* {
-  @apply transition-colors;
+/* 글래스모피즘 효과 */
+@layer utilities {
+  .glass {
+    @apply bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border border-gray-200/50 dark:border-gray-700/50;
+  }
+
+  .glass-sm {
+    @apply bg-white/60 dark:bg-gray-900/60 backdrop-blur-sm;
+  }
+
+  .glass-lg {
+    @apply bg-white/90 dark:bg-gray-900/90 backdrop-blur-lg;
+  }
+}
+
+/* 카드 스타일 */
+@layer components {
+  .card {
+    @apply bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800;
+  }
+
+  .card-hover {
+    @apply card hover:shadow-md transition-shadow duration-200;
+  }
+
+  .card-premium {
+    @apply card bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-yellow-950 dark:to-amber-950 border-yellow-300 dark:border-yellow-700;
+  }
+}
+
+/* 버튼 스타일 */
+@layer components {
+  .btn {
+    @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-primary {
+    @apply btn bg-purple-600 text-white hover:bg-purple-700 active:scale-95;
+  }
+
+  .btn-secondary {
+    @apply btn bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700;
+  }
+
+  .btn-danger {
+    @apply btn bg-red-600 text-white hover:bg-red-700;
+  }
+
+  .btn-ghost {
+    @apply btn bg-transparent hover:bg-gray-100 dark:hover:bg-gray-800;
+  }
+}
+
+/* Sonner 토스트 커스터마이징 */
+.sonner-toast {
+  font-family: inherit !important;
+}
+
+/* 스와이프 카드 스타일 */
+.swipe-card {
+  @apply absolute w-full h-full;
+  will-change: transform;
+}
+
+.swipe-card-dragging {
+  @apply cursor-grabbing;
+}
+
+/* 로딩 스피너 */
+@layer components {
+  .spinner {
+    @apply inline-block w-8 h-8 border-4 border-gray-200 border-t-purple-600 rounded-full animate-spin;
+  }
+
+  .spinner-sm {
+    @apply w-4 h-4 border-2;
+  }
+
+  .spinner-lg {
+    @apply w-12 h-12 border-4;
+  }
+}
+
+/* 텍스트 그라디언트 */
+@layer utilities {
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-600;
+  }
+
+  .text-gradient-gold {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 to-orange-500;
+  }
+}
+
+/* 포커스 스타일 */
+@layer base {
+  input:focus,
+  textarea:focus,
+  select:focus {
+    @apply outline-none ring-2 ring-purple-500 ring-offset-2;
+  }
+}
+
+/* 모바일 탭 하이라이트 제거 */
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* 프린트 스타일 */
+@media print {
+  .no-print {
+    display: none !important;
+  }
 }
