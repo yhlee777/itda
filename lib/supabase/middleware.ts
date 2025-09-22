@@ -1,9 +1,8 @@
-
 // lib/supabase/middleware.ts - Middleware용
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import type { Database } from '@/types/database.types';
+import type { Database } from '@/types/database';
 
 export function createMiddlewareClient(req: NextRequest, res: NextResponse) {
   return createServerClient<Database>(

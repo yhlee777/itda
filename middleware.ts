@@ -1,154 +1,99 @@
 // middleware.ts
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { createMiddlewareClient } from '@/lib/supabase/middleware';
 
 export async function middleware(request: NextRequest) {
-  const response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
-  });
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value;
-        },
-        set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value,
-            ...options,
-          });
-          response.cookies.set({
-            name,
-            value,
-            ...options,
-          });
-        },
-        remove(name: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value: '',
-            ...options,
-          });
-          response.cookies.set({
-            name,
-            value: '',
-            ...options,
-          });
-        },
-      },
-    }
-  );
-
+  const res = NextResponse.next();
+  const supabase = createMiddlewareClient(request, res);
+  
   const { pathname } = request.nextUrl;
-
-  // 정적 파일, API 경로는 무시
+  
+  // 정적 파일 및 API 라우트 무시
   if (
     pathname.includes('_next') ||
     pathname.includes('/api/') ||
     pathname.includes('.') ||
-    pathname.startsWith('/favicon') ||
-    pathname.startsWith('/sounds') ||
-    pathname.startsWith('/images')
+    pathname.startsWith('/favicon')
   ) {
-    return response;
+    return res;
   }
 
-  // 세션 체크 (새로고침 방지)
-  const { data: { session } } = await supabase.auth.getSession();
-
-  // 보호된 경로 정의
-  const protectedPaths = ['/dashboard', '/campaigns', '/create-campaign', '/profile'];
-  const authPaths = ['/login', '/signup', '/onboarding'];
-  
-  const isProtectedPath = protectedPaths.some(path => pathname.startsWith(path));
-  const isAuthPath = authPaths.some(path => pathname.startsWith(path));
-
-  // 로그인하지 않은 상태에서 보호된 경로 접근 시
-  if (isProtectedPath && !session) {
-    const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = '/login';
-    redirectUrl.searchParams.set('redirect', pathname);
-    return NextResponse.redirect(redirectUrl);
-  }
-
-  // 로그인한 상태에서 로그인/회원가입 페이지 접근 시
-  if (isAuthPath && session) {
-    // 사용자 타입 확인
-    const { data: userData } = await supabase
-      .from('users')
-      .select('user_type')
-      .eq('id', session.user.id)
-      .single();
-
-    if (userData) {
-      const redirectUrl = request.nextUrl.clone();
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    // 보호된 라우트 정의
+    const protectedRoutes = ['/dashboard', '/campaigns', '/profile', '/create-campaign'];
+    const authRoutes = ['/login', '/register', '/signup'];
+    
+    // 보호된 라우트 접근 시 로그인 체크
+    if (protectedRoutes.some(route => pathname.startsWith(route))) {
+      if (!session) {
+        return NextResponse.redirect(new URL(`/login?redirect=${pathname}`, request.url));
+      }
       
-      if (userData.user_type === 'advertiser') {
-        // 광고주 승인 상태 확인
+      // 사용자 타입 확인
+      const { data: userData } = await supabase
+        .from('users')
+        .select('user_type')
+        .eq('id', session.user.id)
+        .single();
+      
+      // 온보딩 미완료
+      if (!userData?.user_type) {
+        return NextResponse.redirect(new URL('/onboarding', request.url));
+      }
+      
+      // 광고주 전용 페이지 접근 제한
+      if (pathname.startsWith('/dashboard') || pathname.startsWith('/create-campaign')) {
+        if (userData.user_type !== 'advertiser') {
+          return NextResponse.redirect(new URL('/campaigns', request.url));
+        }
+        
+        // 광고주 승인 확인
         const { data: advertiserData } = await supabase
           .from('advertisers')
           .select('is_verified')
           .eq('id', session.user.id)
           .single();
-
+        
         if (!advertiserData?.is_verified) {
-          redirectUrl.pathname = '/pending-approval';
-        } else {
-          redirectUrl.pathname = '/dashboard';
+          return NextResponse.redirect(new URL('/pending-approval', request.url));
         }
-      } else if (userData.user_type === 'influencer') {
-        redirectUrl.pathname = '/campaigns';
-      } else {
-        redirectUrl.pathname = '/onboarding';
       }
       
-      return NextResponse.redirect(redirectUrl);
+      // 인플루언서 전용 페이지 접근 제한
+      if (pathname.startsWith('/campaigns')) {
+        if (userData.user_type !== 'influencer') {
+          return NextResponse.redirect(new URL('/dashboard', request.url));
+        }
+      }
     }
-  }
-
-  // 특정 경로별 권한 체크
-  if (pathname === '/dashboard' && session) {
-    const { data: userData } = await supabase
-      .from('users')
-      .select('user_type')
-      .eq('id', session.user.id)
-      .single();
-
-    // 인플루언서가 대시보드 접근 시 campaigns로 리다이렉트
-    if (userData?.user_type === 'influencer') {
-      const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = '/campaigns';
-      return NextResponse.redirect(redirectUrl);
+    
+    // 이미 로그인한 사용자가 인증 페이지 접근 시
+    if (authRoutes.some(route => pathname.startsWith(route)) && session) {
+      const { data: userData } = await supabase
+        .from('users')
+        .select('user_type')
+        .eq('id', session.user.id)
+        .single();
+      
+      if (userData?.user_type === 'advertiser') {
+        return NextResponse.redirect(new URL('/dashboard', request.url));
+      } else if (userData?.user_type === 'influencer') {
+        return NextResponse.redirect(new URL('/campaigns', request.url));
+      } else {
+        return NextResponse.redirect(new URL('/onboarding', request.url));
+      }
     }
+    
+  } catch (error) {
+    console.error('Middleware error:', error);
   }
-
-  if (pathname === '/campaigns' && session) {
-    const { data: userData } = await supabase
-      .from('users')
-      .select('user_type')
-      .eq('id', session.user.id)
-      .single();
-
-    // 광고주가 campaigns 접근 시 dashboard로 리다이렉트
-    if (userData?.user_type === 'advertiser') {
-      const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = '/dashboard';
-      return NextResponse.redirect(redirectUrl);
-    }
-  }
-
-  return response;
+  
+  return res;
 }
 
 export const config = {
-  matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
-  ],
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
 };

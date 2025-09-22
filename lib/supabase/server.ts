@@ -1,7 +1,7 @@
 // lib/supabase/server.ts - 서버 컴포넌트용
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-import type { Database } from '@/types/database.types';
+import type { Database } from '@/types/database';
 
 export function createServerComponentClient() {
   const cookieStore = cookies();
@@ -13,6 +13,12 @@ export function createServerComponentClient() {
       cookies: {
         get(name: string) {
           return cookieStore.get(name)?.value;
+        },
+        set(name: string, value: string, options: CookieOptions) {
+          cookieStore.set({ name, value, ...options });
+        },
+        remove(name: string, options: CookieOptions) {
+          cookieStore.set({ name, value: '', ...options });
         },
       },
     }
