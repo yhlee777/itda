@@ -1,4 +1,4 @@
-// middleware.ts - 완전히 수정된 버전
+// middleware.ts
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs';
@@ -9,7 +9,7 @@ export async function middleware(request: NextRequest) {
   
   const { pathname } = request.nextUrl;
   
-  // 정적 파일 및 API 경로 무시
+  // 정적 파일 무시
   if (
     pathname.includes('_next') ||
     pathname.includes('/api/') ||
@@ -18,45 +18,50 @@ export async function middleware(request: NextRequest) {
   ) {
     return res;
   }
-  
-  // 공개 경로 정의
-  const publicPaths = ['/', '/login', '/register', '/signup'];
-  const isPublicPath = publicPaths.includes(pathname);
-  
-  // 세션 확인
-  const { data: { session } } = await supabase.auth.getSession();
-  
-  console.log('Middleware Check:', {
-    path: pathname,
-    hasSession: !!session,
-    isPublicPath
-  });
-  
-  // 보호된 경로 접근 시 로그인 필요
-  if (!session && !isPublicPath) {
-    const redirectUrl = new URL('/login', request.url);
-    redirectUrl.searchParams.set('redirect', pathname);
-    return NextResponse.redirect(redirectUrl);
-  }
-  
-  // 로그인 상태에서 인증 페이지 접근 시
-  if (session && (pathname === '/login' || pathname === '/register')) {
-    // 사용자 타입 확인
-    const { data: userData } = await supabase
-      .from('users')
-      .select('user_type')
-      .eq('id', session.user.id)
-      .single();
-    
-    if (userData?.user_type === 'advertiser') {
-      return NextResponse.redirect(new URL('/dashboard', request.url));
-    } else if (userData?.user_type === 'influencer') {
-      return NextResponse.redirect(new URL('/campaigns', request.url));
-    } else {
-      return NextResponse.redirect(new URL('/onboarding', request.url));
+
+  // 대시보드 접근 시 추가 체크
+  if (pathname === '/dashboard') {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        // 로그인 페이지로 리다이렉트
+        return NextResponse.redirect(new URL('/login?redirect=/dashboard', request.url));
+      }
+
+      // 광고주 권한 체크
+      const { data: userData } = await supabase
+        .from('users')
+        .select('user_type')
+        .eq('id', session.user.id)
+        .single();
+
+      if (userData?.user_type !== 'advertiser') {
+        // 인플루언서는 campaigns로
+        return NextResponse.redirect(new URL('/campaigns', request.url));
+      }
+
+      // 광고주 승인 체크
+      const { data: advertiserData } = await supabase
+        .from('advertisers')
+        .select('is_verified')
+        .eq('id', session.user.id)
+        .single();
+
+      if (!advertiserData?.is_verified) {
+        // 미승인 광고주
+        return NextResponse.redirect(new URL('/pending-approval', request.url));
+      }
+
+      // 모든 체크 통과 - 대시보드 표시
+      return res;
+      
+    } catch (error) {
+      console.error('Middleware error:', error);
+      return res;
     }
   }
-  
+
   return res;
 }
 

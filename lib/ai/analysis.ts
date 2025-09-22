@@ -1,100 +1,30 @@
 // lib/ai/analysis.ts
-// AI 분석 및 가격 예측 시스템
-
-interface InfluencerProfile {
+export interface InfluencerProfile {
+  id: string;
+  name: string;
+  username: string;
   followers_count: number;
   engagement_rate: number;
-  average_likes: number;
-  average_comments: number;
   categories: string[];
-  tier: 'standard' | 'gold' | 'premium';
-  total_campaigns: number;
+  tier: 'bronze' | 'silver' | 'gold' | 'premium';
   average_rating: number;
-  growth_rate: number;
-  audience_demographics: {
-    age_distribution: Record<string, number>;
-    gender_distribution: { male: number; female: number };
-    location_distribution: Record<string, number>;
-  };
+  total_campaigns: number;
+  audience_demographics: any;
+  content_quality_score: number;
 }
 
-interface Campaign {
+export interface Campaign {
+  id: string;
+  title: string;
   budget: number;
   categories: string[];
   target_audience: any;
   deliverables: any[];
-  duration: number; // days
+  duration: number;
+  urgency: 'low' | 'medium' | 'high';
 }
 
-export class AIAnalyzer {
-  // 단가 예측 알고리즘
-  static predictPrice(influencer: InfluencerProfile, campaign: Campaign): {
-    recommended: number;
-    min: number;
-    max: number;
-    confidence: number;
-    factors: string[];
-  } {
-    // 기본 단가 계산 (팔로워 기반)
-    let basePrice = 0;
-    const followers = influencer.followers_count;
-    
-    if (followers < 10000) {
-      basePrice = followers * 50; // 팔로워당 50원
-    } else if (followers < 50000) {
-      basePrice = 500000 + (followers - 10000) * 30; // 팔로워당 30원
-    } else if (followers < 100000) {
-      basePrice = 1700000 + (followers - 50000) * 20; // 팔로워당 20원
-    } else {
-      basePrice = 2700000 + (followers - 100000) * 10; // 팔로워당 10원
-    }
-
-    // 참여율 가중치 (매우 중요)
-    const engagementMultiplier = this.getEngagementMultiplier(influencer.engagement_rate);
-    basePrice *= engagementMultiplier;
-
-    // 카테고리 매칭 가중치
-    const categoryMatch = this.calculateCategoryMatch(influencer.categories, campaign.categories);
-    basePrice *= (1 + categoryMatch * 0.2); // 최대 20% 증가
-
-    // 경험치 가중치
-    const experienceMultiplier = this.getExperienceMultiplier(
-      influencer.total_campaigns,
-      influencer.average_rating
-    );
-    basePrice *= experienceMultiplier;
-
-    // 콘텐츠 수량 조정
-    const contentMultiplier = this.calculateContentMultiplier(campaign.deliverables);
-    basePrice *= contentMultiplier;
-
-    // 긴급도 조정
-    if (campaign.duration < 7) {
-      basePrice *= 1.3; // 긴급 캠페인 30% 추가
-    } else if (campaign.duration < 14) {
-      basePrice *= 1.15; // 급한 캠페인 15% 추가
-    }
-
-    // 최종 가격 범위 계산
-    const recommended = Math.round(basePrice / 10000) * 10000; // 만원 단위 반올림
-    const min = Math.round(recommended * 0.8);
-    const max = Math.round(recommended * 1.3);
-
-    // 신뢰도 계산
-    const confidence = this.calculateConfidence(influencer, campaign);
-
-    // 주요 가격 결정 요인
-    const factors = this.getPriceFactors(influencer, campaign, {
-      basePrice,
-      engagementMultiplier,
-      categoryMatch,
-      experienceMultiplier,
-      contentMultiplier
-    });
-
-    return { recommended, min, max, confidence, factors };
-  }
-
+export class AIAnalysisEngine {
   // 매칭 점수 계산
   static calculateMatchScore(influencer: InfluencerProfile, campaign: Campaign): {
     score: number;
@@ -102,51 +32,46 @@ export class AIAnalyzer {
     weaknesses: string[];
     recommendation: 'highly_recommended' | 'recommended' | 'possible' | 'not_recommended';
   } {
-    let score = 50; // 기본 점수
+    let score = 0;
     const strengths: string[] = [];
     const weaknesses: string[] = [];
 
-    // 카테고리 매칭
+    // 1. 카테고리 매칭 (30점)
     const categoryMatch = this.calculateCategoryMatch(influencer.categories, campaign.categories);
-    score += categoryMatch * 20;
+    score += categoryMatch * 30;
     if (categoryMatch > 0.7) {
-      strengths.push('카테고리 완벽 매칭');
+      strengths.push('카테고리 전문성이 캠페인과 잘 맞습니다');
     } else if (categoryMatch < 0.3) {
-      weaknesses.push('카테고리 불일치');
+      weaknesses.push('카테고리 매칭도가 낮습니다');
     }
 
-    // 참여율 평가
-    if (influencer.engagement_rate > 5) {
-      score += 15;
-      strengths.push('매우 높은 참여율');
-    } else if (influencer.engagement_rate > 3) {
-      score += 10;
-      strengths.push('높은 참여율');
-    } else if (influencer.engagement_rate < 1) {
-      score -= 10;
-      weaknesses.push('낮은 참여율');
-    }
-
-    // 오디언스 매칭
+    // 2. 오디언스 매칭 (25점)
     const audienceMatch = this.calculateAudienceMatch(
       influencer.audience_demographics,
       campaign.target_audience
     );
-    score += audienceMatch * 15;
+    score += audienceMatch * 25;
     if (audienceMatch > 0.7) {
-      strengths.push('타겟 오디언스 일치');
+      strengths.push('타겟 오디언스와 팔로워 층이 일치합니다');
     }
 
-    // 성장률 평가
-    if (influencer.growth_rate > 10) {
-      score += 5;
-      strengths.push('빠른 성장세');
-    } else if (influencer.growth_rate < -5) {
-      score -= 5;
-      weaknesses.push('팔로워 감소 추세');
+    // 3. 참여율 평가 (20점)
+    const engagementScore = Math.min(influencer.engagement_rate / 10, 1) * 20;
+    score += engagementScore;
+    if (influencer.engagement_rate > 5) {
+      strengths.push('높은 참여율을 보유하고 있습니다');
+    } else if (influencer.engagement_rate < 2) {
+      weaknesses.push('참여율이 평균보다 낮습니다');
     }
 
-    // 경험 평가
+    // 4. 콘텐츠 품질 (15점)
+    const qualityScore = (influencer.content_quality_score / 10) * 15;
+    score += qualityScore;
+    if (influencer.content_quality_score > 8) {
+      strengths.push('고품질 콘텐츠 제작 능력');
+    }
+
+    // 5. 경험 및 신뢰도 (10점)
     if (influencer.total_campaigns > 20 && influencer.average_rating > 4.5) {
       score += 10;
       strengths.push('풍부한 경험과 높은 평점');
@@ -170,6 +95,81 @@ export class AIAnalyzer {
     }
 
     return { score, strengths, weaknesses, recommendation };
+  }
+
+  // 단가 예측
+  static predictPrice(influencer: InfluencerProfile, campaign: Campaign): {
+    suggested_price: number;
+    min_price: number;
+    max_price: number;
+    price_factors: string[];
+    confidence: number;
+  } {
+    // 기본 단가 계산 (팔로워 수 기반)
+    let basePrice = 0;
+    const followers = influencer.followers_count;
+    
+    if (followers < 10000) {
+      basePrice = followers * 10; // 팔로워당 10원
+    } else if (followers < 50000) {
+      basePrice = 100000 + (followers - 10000) * 8; // 10만 + 팔로워당 8원
+    } else if (followers < 100000) {
+      basePrice = 420000 + (followers - 50000) * 6; // 42만 + 팔로워당 6원
+    } else if (followers < 500000) {
+      basePrice = 720000 + (followers - 100000) * 4; // 72만 + 팔로워당 4원
+    } else {
+      basePrice = 2320000 + (followers - 500000) * 2; // 232만 + 팔로워당 2원
+    }
+
+    // 조정 요소들
+    const engagementMultiplier = this.getEngagementMultiplier(influencer.engagement_rate);
+    const tierMultiplier = this.getTierMultiplier(influencer.tier);
+    const categoryMatch = this.calculateCategoryMatch(influencer.categories, campaign.categories);
+    const urgencyMultiplier = campaign.urgency === 'high' ? 1.3 : campaign.urgency === 'medium' ? 1.1 : 1.0;
+    const experienceMultiplier = this.getExperienceMultiplier(
+      influencer.total_campaigns,
+      influencer.average_rating
+    );
+    const contentMultiplier = this.calculateContentMultiplier(campaign.deliverables);
+
+    // 최종 가격 계산
+    const finalPrice = basePrice * 
+      engagementMultiplier * 
+      tierMultiplier * 
+      (1 + categoryMatch * 0.2) * 
+      urgencyMultiplier * 
+      experienceMultiplier *
+      contentMultiplier;
+
+    // 가격 범위 설정
+    const minPrice = Math.round(finalPrice * 0.8);
+    const maxPrice = Math.round(finalPrice * 1.2);
+    const suggestedPrice = Math.round(finalPrice);
+
+    // 가격 결정 요인
+    const priceFactors = this.getPriceFactors(
+      influencer,
+      campaign,
+      {
+        engagementMultiplier,
+        tierMultiplier,
+        categoryMatch,
+        urgencyMultiplier,
+        experienceMultiplier,
+        contentMultiplier
+      }
+    );
+
+    // 신뢰도 계산
+    const confidence = this.calculateConfidence(influencer, campaign);
+
+    return {
+      suggested_price: suggestedPrice,
+      min_price: minPrice,
+      max_price: maxPrice,
+      price_factors: priceFactors,
+      confidence
+    };
   }
 
   // 성과 예측
@@ -209,6 +209,16 @@ export class AIAnalyzer {
     if (rate > 2) return 1.0;
     if (rate > 1) return 0.9;
     return 0.7;
+  }
+
+  private static getTierMultiplier(tier: string): number {
+    switch(tier) {
+      case 'premium': return 1.5;
+      case 'gold': return 1.2;
+      case 'silver': return 1.0;
+      case 'bronze': return 0.8;
+      default: return 1.0;
+    }
   }
 
   private static getExperienceMultiplier(campaigns: number, rating: number): number {
@@ -275,5 +285,28 @@ export class AIAnalyzer {
     }
     
     return factors;
+  }
+}
+
+// 실시간 매칭 시스템
+export class RealtimeMatchingSystem {
+  static async findMatches(campaignId: string, limit: number = 10): Promise<any[]> {
+    // 실제로는 Supabase에서 데이터를 가져와야 함
+    // 여기서는 시뮬레이션
+    return [];
+  }
+
+  static async notifyInfluencer(influencerId: string, campaignId: string): Promise<void> {
+    // 푸시 알림 전송 로직
+    console.log(`Notifying influencer ${influencerId} about campaign ${campaignId}`);
+  }
+
+  static async scheduleNotifications(advertiserId: string, intervals: number[]): Promise<void> {
+    // 광고주에게 정기 알림 스케줄링
+    intervals.forEach((minutes) => {
+      setTimeout(() => {
+        console.log(`Sending notification to advertiser ${advertiserId} after ${minutes} minutes`);
+      }, minutes * 60 * 1000);
+    });
   }
 }
