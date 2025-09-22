@@ -63,7 +63,20 @@ export default function LoginPage() {
 
       if (error) {
         console.error('Login error:', error);
-        toast.error(error.message || '로그인에 실패했습니다');
+        
+        // 보안을 위해 구체적인 에러 메시지를 노출하지 않음
+        if (error.message.includes('Invalid login credentials') || 
+            error.message.includes('Email not confirmed') ||
+            error.message.includes('User not found')) {
+          toast.error('이메일 또는 비밀번호가 올바르지 않습니다');
+        } else if (error.message.includes('Email link is invalid')) {
+          toast.error('이메일 인증이 필요합니다. 이메일을 확인해주세요');
+        } else if (error.message.includes('Too many requests')) {
+          toast.error('너무 많은 시도가 있었습니다. 잠시 후 다시 시도해주세요');
+        } else {
+          toast.error('로그인에 실패했습니다. 다시 시도해주세요');
+        }
+        
         setIsLoading(false);
         return;
       }
@@ -172,12 +185,12 @@ export default function LoginPage() {
                 이메일
               </label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-600 focus:border-transparent transition-all"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-600 focus:border-transparent"
                   placeholder="your@email.com"
                   required
                 />
@@ -190,32 +203,31 @@ export default function LoginPage() {
                 비밀번호
               </label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <input
-                  type={showPassword ? "text" : "password"}
+                  type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-12 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-600 focus:border-transparent transition-all"
+                  className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-600 focus:border-transparent"
                   placeholder="••••••••"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
-                  {showPassword ? (
-                    <EyeOff className="w-5 h-5 text-gray-400" />
-                  ) : (
-                    <Eye className="w-5 h-5 text-gray-400" />
-                  )}
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
             </div>
 
             {/* 비밀번호 찾기 */}
             <div className="flex justify-end">
-              <Link href="/forgot-password" className="text-sm text-purple-600 hover:text-purple-700">
+              <Link 
+                href="/forgot-password" 
+                className="text-sm text-purple-600 hover:text-purple-700 hover:underline"
+              >
                 비밀번호를 잊으셨나요?
               </Link>
             </div>
