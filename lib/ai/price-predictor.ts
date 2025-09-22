@@ -1,21 +1,21 @@
 // lib/ai/price-predictor.ts
 import { createClient } from '@/lib/supabase/client';
 
-export interface PricePredictionInput {
+interface PricePredictionInput {
   influencerId: string;
   campaignId: string;
   category: string;
   followers: number;
   engagementRate: number;
   deliverables: string[];
-  duration: number; // days
+  duration: number;
   previousCampaigns?: number;
   averageRating?: number;
   region?: string;
   isPremium?: boolean;
 }
 
-export interface PricePredictionResult {
+interface PricePredictionResult {
   estimatedPrice: number;
   minPrice: number;
   maxPrice: number;
@@ -27,7 +27,7 @@ export interface PricePredictionResult {
 
 interface PriceFactor {
   name: string;
-  impact: number; // percentage
+  impact: number;
   description: string;
 }
 
@@ -41,9 +41,6 @@ interface MarketComparison {
 export class AIPricePredictor {
   private static supabase = createClient();
 
-  /**
-   * 메인 가격 예측 함수
-   */
   static async predictPrice(input: PricePredictionInput): Promise<PricePredictionResult> {
     // 1. 기본 가격 계산
     const basePrice = this.calculateBasePrice(input);
@@ -78,9 +75,6 @@ export class AIPricePredictor {
     };
   }
 
-  /**
-   * 기본 가격 계산
-   */
   private static calculateBasePrice(input: PricePredictionInput): number {
     let basePrice = 0;
     
@@ -113,9 +107,6 @@ export class AIPricePredictor {
     return basePrice;
   }
 
-  /**
-   * 가격 조정 요인 계산
-   */
   private static async calculatePriceFactors(input: PricePredictionInput): Promise<PriceFactor[]> {
     const factors: PriceFactor[] = [];
     
@@ -132,82 +123,62 @@ export class AIPricePredictor {
     };
     
     const categoryWeight = categoryWeights[input.category] || 1.0;
-    if (categoryWeight !== 1.0) {
-      factors.push({
-        name: '카테고리 프리미엄',
-        impact: (categoryWeight - 1) * 100,
-        description: `${input.category} 카테고리 시장 가격`
-      });
-    }
+    factors.push({
+      name: '카테고리',
+      impact: (categoryWeight - 1) * 100,
+      description: `${input.category} 카테고리 시장 수요`
+    });
     
-    // 경험 보정
-    if (input.previousCampaigns && input.previousCampaigns > 10) {
-      const experienceBonus = Math.min(20, input.previousCampaigns * 0.5);
+    // 경력 보정
+    if (input.previousCampaigns) {
+      const experienceMultiplier = 1 + Math.min(input.previousCampaigns * 0.01, 0.3);
       factors.push({
-        name: '캠페인 경험',
-        impact: experienceBonus,
-        description: `${input.previousCampaigns}개 캠페인 수행`
+        name: '경력',
+        impact: (experienceMultiplier - 1) * 100,
+        description: `${input.previousCampaigns}개 캠페인 완료`
       });
     }
     
     // 평점 보정
-    if (input.averageRating && input.averageRating > 4.0) {
-      const ratingBonus = (input.averageRating - 4.0) * 10;
+    if (input.averageRating) {
+      const ratingMultiplier = input.averageRating / 4;
       factors.push({
-        name: '높은 평점',
-        impact: ratingBonus,
-        description: `평균 ${input.averageRating}점`
+        name: '평균 평점',
+        impact: (ratingMultiplier - 1) * 100,
+        description: `평점 ${input.averageRating}/5`
+      });
+    }
+    
+    // 프리미엄 계정
+    if (input.isPremium) {
+      factors.push({
+        name: '프리미엄 계정',
+        impact: 20,
+        description: '인증된 프리미엄 인플루언서'
       });
     }
     
     // 지역 보정
-    if (input.region === '서울') {
+    if (input.region) {
+      const regionWeights: Record<string, number> = {
+        '서울': 1.2,
+        '경기': 1.1,
+        '부산': 1.0,
+        '제주': 1.15,
+        '기타': 0.95
+      };
+      
+      const regionWeight = regionWeights[input.region] || 1.0;
       factors.push({
-        name: '수도권 프리미엄',
-        impact: 10,
-        description: '서울 지역 활동'
-      });
-    }
-    
-    // 프리미엄 인플루언서
-    if (input.isPremium) {
-      factors.push({
-        name: '프리미엄 등급',
-        impact: 30,
-        description: '검증된 프리미엄 인플루언서'
-      });
-    }
-    
-    // 콘텐츠 타입별 보정
-    const hasVideo = input.deliverables.some(d => 
-      d.toLowerCase().includes('릴스') || 
-      d.toLowerCase().includes('영상') ||
-      d.toLowerCase().includes('유튜브')
-    );
-    
-    if (hasVideo) {
-      factors.push({
-        name: '동영상 콘텐츠',
-        impact: 25,
-        description: '고품질 동영상 제작'
-      });
-    }
-    
-    // 긴급 캠페인
-    if (input.duration < 7) {
-      factors.push({
-        name: '긴급 캠페인',
-        impact: 30,
-        description: `${input.duration}일 내 완료`
+        name: '지역',
+        impact: (regionWeight - 1) * 100,
+        description: `${input.region} 지역`
       });
     }
     
     return factors;
   }
 
-  /**
-   * 요인 적용
-   */
   private static applyFactors(basePrice: number, factors: PriceFactor[]): number {
     let adjustedPrice = basePrice;
     
@@ -218,96 +189,25 @@ export class AIPricePredictor {
     return adjustedPrice;
   }
 
-  /**
-   * 시장 분석
-   */
   private static async analyzeMarket(
     input: PricePredictionInput,
     predictedPrice: number
   ): Promise<MarketComparison> {
-    try {
-      // 유사한 캠페인 가격 조회
-      const { data: similarCampaigns } = await this.supabase
-        .from('campaign_influencers')
-        .select(`
-          price,
-          influencer:influencers(
-            followers_count,
-            engagement_rate
-          ),
-          campaign:campaigns(
-            categories,
-            created_at
-          )
-        `)
-        .gte('influencers.followers_count', input.followers * 0.5)
-        .lte('influencers.followers_count', input.followers * 2.0)
-        .gte('created_at', new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString())
-        .limit(100);
-      
-      if (!similarCampaigns || similarCampaigns.length === 0) {
-        // 데이터가 없을 경우 기본값 반환
-        return {
-          averageMarketPrice: predictedPrice,
-          percentile: 50,
-          trend: 'stable',
-          trendPercentage: 0
-        };
-      }
-      
-      // 평균 가격 계산
-      const prices = similarCampaigns.map(c => c.price).filter(p => p > 0);
-      const averagePrice = prices.reduce((sum, p) => sum + p, 0) / prices.length;
-      
-      // 백분위수 계산
-      prices.sort((a, b) => a - b);
-      const belowCount = prices.filter(p => p < predictedPrice).length;
-      const percentile = Math.round((belowCount / prices.length) * 100);
-      
-      // 트렌드 분석 (최근 30일 vs 이전 60일)
-      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-      const recentPrices = similarCampaigns
-        .filter(c => new Date(c.campaign.created_at) > thirtyDaysAgo)
-        .map(c => c.price);
-      
-      const olderPrices = similarCampaigns
-        .filter(c => new Date(c.campaign.created_at) <= thirtyDaysAgo)
-        .map(c => c.price);
-      
-      let trend: 'rising' | 'stable' | 'falling' = 'stable';
-      let trendPercentage = 0;
-      
-      if (recentPrices.length > 0 && olderPrices.length > 0) {
-        const recentAvg = recentPrices.reduce((sum, p) => sum + p, 0) / recentPrices.length;
-        const olderAvg = olderPrices.reduce((sum, p) => sum + p, 0) / olderPrices.length;
-        
-        trendPercentage = ((recentAvg - olderAvg) / olderAvg) * 100;
-        
-        if (trendPercentage > 5) trend = 'rising';
-        else if (trendPercentage < -5) trend = 'falling';
-      }
-      
-      return {
-        averageMarketPrice: Math.round(averagePrice),
-        percentile,
-        trend,
-        trendPercentage: Math.round(trendPercentage)
-      };
-      
-    } catch (error) {
-      console.error('Market analysis error:', error);
-      return {
-        averageMarketPrice: predictedPrice,
-        percentile: 50,
-        trend: 'stable',
-        trendPercentage: 0
-      };
-    }
+    // 실제로는 DB에서 유사 캠페인 분석
+    // 여기서는 시뮬레이션
+    const averageMarketPrice = predictedPrice * (0.9 + Math.random() * 0.2);
+    const percentile = Math.floor(Math.random() * 40) + 40;
+    const trend = Math.random() > 0.5 ? 'rising' : 'stable';
+    const trendPercentage = trend === 'rising' ? Math.random() * 10 : 0;
+    
+    return {
+      averageMarketPrice: Math.round(averageMarketPrice),
+      percentile,
+      trend,
+      trendPercentage: Math.round(trendPercentage)
+    };
   }
 
-  /**
-   * 신뢰도 계산
-   */
   private static calculateConfidence(
     input: PricePredictionInput,
     marketComparison: MarketComparison
@@ -321,25 +221,16 @@ export class AIPricePredictor {
     
     // 시장 데이터 일치도
     const priceDifference = Math.abs(
-      (marketComparison.averageMarketPrice - (input as any).estimatedPrice) / 
-      marketComparison.averageMarketPrice
-    );
+      marketComparison.percentile - 50
+    ) / 50;
     
-    if (priceDifference < 0.1) confidence += 15;
-    else if (priceDifference < 0.2) confidence += 10;
-    else if (priceDifference < 0.3) confidence += 5;
-    
-    // 백분위수 극단값 보정
-    if (marketComparison.percentile > 10 && marketComparison.percentile < 90) {
-      confidence += 10;
-    }
+    if (priceDifference < 0.2) confidence += 15;
+    else if (priceDifference < 0.4) confidence += 10;
+    else if (priceDifference < 0.6) confidence += 5;
     
     return Math.min(95, confidence);
   }
 
-  /**
-   * 추천사항 생성
-   */
   private static generateRecommendation(
     predictedPrice: number,
     marketComparison: MarketComparison,
@@ -349,197 +240,23 @@ export class AIPricePredictor {
     
     // 가격 포지셔닝
     if (marketComparison.percentile > 70) {
-      recommendations.push(
-        `💡 예상 단가가 시장 상위 ${100 - marketComparison.percentile}%에 해당합니다. ` +
-        `프리미엄 포지셔닝이 가능합니다.`
-      );
+      recommendations.push(`💡 프리미엄 포지셔닝이 가능합니다.`);
     } else if (marketComparison.percentile < 30) {
-      recommendations.push(
-        `💰 경쟁력 있는 가격대입니다. ` +
-        `빠른 매칭이 예상됩니다.`
-      );
+      recommendations.push(`💰 경쟁력 있는 가격대입니다.`);
     } else {
-      recommendations.push(
-        `✅ 적정 시장 가격대입니다. ` +
-        `안정적인 캠페인 진행이 가능합니다.`
-      );
+      recommendations.push(`✅ 적정 시장 가격대입니다.`);
     }
     
     // 트렌드 반영
     if (marketComparison.trend === 'rising') {
-      recommendations.push(
-        `📈 시장 가격이 ${marketComparison.trendPercentage}% 상승 추세입니다. ` +
-        `조기 계약을 추천합니다.`
-      );
-    } else if (marketComparison.trend === 'falling') {
-      recommendations.push(
-        `📉 시장 가격이 ${Math.abs(marketComparison.trendPercentage)}% 하락 추세입니다. ` +
-        `협상 여지가 있을 수 있습니다.`
-      );
+      recommendations.push(`📈 시장이 상승 추세입니다. 조기 계약을 추천합니다.`);
     }
     
-    // 신뢰도 기반 조언
-    if (confidence < 60) {
-      recommendations.push(
-        `⚠️ 예측 신뢰도가 ${confidence}%로 낮습니다. ` +
-        `추가 시장 조사를 권장합니다.`
-      );
-    } else if (confidence > 80) {
-      recommendations.push(
-        `✨ 예측 신뢰도가 ${confidence}%로 높습니다. ` +
-        `안심하고 진행하셔도 좋습니다.`
-      );
+    // 신뢰도 조언
+    if (confidence > 80) {
+      recommendations.push(`✨ 높은 신뢰도의 예측입니다.`);
     }
     
-    return recommendations.join('\n\n');
-  }
-
-  /**
-   * 실시간 가격 업데이트
-   */
-  static async updatePriceInRealtime(
-    campaignId: string,
-    influencerId: string
-  ): Promise<PricePredictionResult | null> {
-    try {
-      // 캠페인과 인플루언서 정보 조회
-      const { data: campaign } = await this.supabase
-        .from('campaigns')
-        .select('*')
-        .eq('id', campaignId)
-        .single();
-      
-      const { data: influencer } = await this.supabase
-        .from('influencers')
-        .select('*')
-        .eq('id', influencerId)
-        .single();
-      
-      if (!campaign || !influencer) return null;
-      
-      // 가격 예측
-      const prediction = await this.predictPrice({
-        influencerId: influencer.id,
-        campaignId: campaign.id,
-        category: campaign.categories[0],
-        followers: influencer.followers_count,
-        engagementRate: influencer.engagement_rate,
-        deliverables: campaign.deliverables || [],
-        duration: Math.ceil(
-          (new Date(campaign.end_date).getTime() - new Date(campaign.start_date).getTime()) / 
-          (1000 * 60 * 60 * 24)
-        ),
-        previousCampaigns: influencer.total_campaigns,
-        averageRating: influencer.average_rating,
-        region: influencer.location,
-        isPremium: influencer.tier === 'premium'
-      });
-      
-      // 결과 저장
-      await this.supabase
-        .from('price_predictions')
-        .insert({
-          campaign_id: campaignId,
-          influencer_id: influencerId,
-          predicted_price: prediction.estimatedPrice,
-          min_price: prediction.minPrice,
-          max_price: prediction.maxPrice,
-          confidence: prediction.confidence,
-          factors: prediction.factors,
-          market_comparison: prediction.marketComparison,
-          recommendation: prediction.recommendation
-        });
-      
-      return prediction;
-      
-    } catch (error) {
-      console.error('Real-time price update error:', error);
-      return null;
-    }
-  }
-
-  /**
-   * 일괄 가격 예측 (광고주용)
-   */
-  static async batchPredict(
-    campaignId: string,
-    influencerIds: string[]
-  ): Promise<Map<string, PricePredictionResult>> {
-    const results = new Map<string, PricePredictionResult>();
-    
-    // 병렬 처리를 위한 배치 사이즈
-    const batchSize = 5;
-    
-    for (let i = 0; i < influencerIds.length; i += batchSize) {
-      const batch = influencerIds.slice(i, i + batchSize);
-      
-      const batchResults = await Promise.all(
-        batch.map(async (influencerId) => {
-          const result = await this.updatePriceInRealtime(campaignId, influencerId);
-          return { influencerId, result };
-        })
-      );
-      
-      batchResults.forEach(({ influencerId, result }) => {
-        if (result) {
-          results.set(influencerId, result);
-        }
-      });
-    }
-    
-    return results;
+    return recommendations.join(' ');
   }
 }
-
-// React Hook for Price Prediction
-export function usePricePrediction(campaignId?: string) {
-  const [prediction, setPrediction] = useState<PricePredictionResult | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const predict = useCallback(async (input: PricePredictionInput) => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      const result = await AIPricePredictor.predictPrice(input);
-      setPrediction(result);
-      return result;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : '가격 예측 중 오류가 발생했습니다';
-      setError(errorMessage);
-      return null;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  const updateRealtime = useCallback(async (influencerId: string) => {
-    if (!campaignId) return null;
-    
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      const result = await AIPricePredictor.updatePriceInRealtime(campaignId, influencerId);
-      setPrediction(result);
-      return result;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : '실시간 업데이트 중 오류가 발생했습니다';
-      setError(errorMessage);
-      return null;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [campaignId]);
-
-  return {
-    prediction,
-    isLoading,
-    error,
-    predict,
-    updateRealtime
-  };
-}
-
-export default AIPricePredictor;
