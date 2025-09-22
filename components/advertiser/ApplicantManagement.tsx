@@ -11,6 +11,8 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'react-hot-toast';
+import { useRouter } from 'next/navigation'; // 추가된 import
+import { createChatOnAccept } from '@/lib/campaign/actions'; // 추가된 import
 import type { Database } from '@/types/supabase';
 
 // Supabase 타입
@@ -50,6 +52,7 @@ type SortBy = 'recent' | 'match_score' | 'followers' | 'price';
 
 export default function ApplicantManagement({ campaignId, advertiserId }: ApplicantManagementProps) {
   const supabase = createClient();
+  const router = useRouter(); // 추가
   const [applicants, setApplicants] = useState<ApplicantViewModel[]>([]);
   const [filteredApplicants, setFilteredApplicants] = useState<ApplicantViewModel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -215,7 +218,7 @@ export default function ApplicantManagement({ campaignId, advertiserId }: Applic
     const acceptanceRate = (accepted + rejected) > 0 
       ? (accepted / (accepted + rejected)) * 100 
       : 0;
-    
+
     setStats({
       total,
       pending,
@@ -226,11 +229,13 @@ export default function ApplicantManagement({ campaignId, advertiserId }: Applic
     });
   };
 
+  // 수락 함수 - 수정된 부분
   const acceptApplication = async (applicantId: string) => {
-    try {
-      setProcessingId(applicantId);
+    setProcessingId(applicantId);
 
-      const { error } = await supabase
+    try {
+      // 상태 업데이트
+      await supabase
         .from('campaign_influencers')
         .update({ 
           status: 'accepted',
@@ -238,104 +243,128 @@ export default function ApplicantManagement({ campaignId, advertiserId }: Applic
         })
         .eq('id', applicantId);
 
-      if (error) throw error;
-
-      // 채팅방 생성
+      // 채팅방 생성 - 새로 추가된 부분
       const applicant = applicants.find(a => a.id === applicantId);
       if (applicant) {
-        const { data: chatRoom, error: chatError } = await supabase
-          .from('chat_rooms')
-          .insert({
-            campaign_id: applicant.campaign_id,
-            advertiser_id: advertiserId,
-            influencer_id: applicant.influencer_id,
-            status: 'active'
-          })
-          .select()
-          .single();
-
-        if (chatError) {
-          console.error('채팅방 생성 실패:', chatError);
-        } else {
-          toast.success('지원을 수락했습니다! 채팅방이 생성되었습니다 💬');
+        const result = await createChatOnAccept(
+          applicant.campaign_id,
+          advertiserId,
+          applicant.influencer_id
+        );
+        
+        if (result.chatRoomId) {
+          // 채팅 시작 옵션 제공
+          toast.custom((t) => (
+            <div className="bg-white p-4 rounded-lg shadow-lg">
+              <p className="font-semibold mb-2">지원을 수락했습니다!</p>
+              <button
+                onClick={() => {
+                  router.push(`/chat/${result.chatRoomId}`);
+                  toast.dismiss(t.id);
+                }}
+                className="px-3 py-1 bg-purple-600 text-white rounded text-sm"
+              >
+                채팅 시작하기
+              </button>
+            </div>
+          ), { duration: 5000 });
         }
       }
+
+      // 상태 업데이트
+      setApplicants(prev =>
+        prev.map(app =>
+          app.id === applicantId
+            ? { ...app, status: 'accepted' }
+            : app
+        )
+      );
       
-      setApplicants(prev => prev.map(app => 
-        app.id === applicantId 
-          ? { ...app, status: 'accepted' }
-          : app
+      toast.success('지원을 수락했습니다');
+      calculateStats(applicants.map(app =>
+        app.id === applicantId ? { ...app, status: 'accepted' } : app
       ));
     } catch (error) {
       console.error('수락 오류:', error);
-      toast.error('처리 중 오류가 발생했습니다');
+      toast.error('수락 처리 중 오류가 발생했습니다');
     } finally {
       setProcessingId(null);
     }
   };
 
+  // 거절 함수
   const rejectApplication = async (applicantId: string) => {
-    try {
-      setProcessingId(applicantId);
+    setProcessingId(applicantId);
 
-      const { error } = await supabase
+    try {
+      await supabase
         .from('campaign_influencers')
         .update({ 
-          status: 'rejected'
+          status: 'rejected',
+          accepted_at: new Date().toISOString()
         })
         .eq('id', applicantId);
 
-      if (error) throw error;
-
-      toast.success('지원을 거절했습니다');
+      setApplicants(prev =>
+        prev.map(app =>
+          app.id === applicantId
+            ? { ...app, status: 'rejected' }
+            : app
+        )
+      );
       
-      setApplicants(prev => prev.map(app => 
-        app.id === applicantId 
-          ? { ...app, status: 'rejected' }
-          : app
+      toast.success('지원을 거절했습니다');
+      calculateStats(applicants.map(app =>
+        app.id === applicantId ? { ...app, status: 'rejected' } : app
       ));
     } catch (error) {
       console.error('거절 오류:', error);
-      toast.error('처리 중 오류가 발생했습니다');
+      toast.error('거절 처리 중 오류가 발생했습니다');
     } finally {
       setProcessingId(null);
     }
   };
 
-  const formatTimeAgo = (hours: number): string => {
+  // 시간 포맷팅
+  const formatTimeAgo = (hours: number) => {
     if (hours < 1) return '방금 전';
-    if (hours < 24) return `${Math.floor(hours)}시간 전`;
-    if (hours < 168) return `${Math.floor(hours / 24)}일 전`;
-    return `${Math.floor(hours / 168)}주 전`;
+    if (hours < 24) return `${hours}시간 전`;
+    const days = Math.floor(hours / 24);
+    if (days < 30) return `${days}일 전`;
+    return `${Math.floor(days / 30)}달 전`;
   };
 
+  // 티어 뱃지
   const getTierBadge = (tier: string, verified: boolean) => {
-    // Record<string, string>으로 명시적 타입 지정
-    const tierColors: Record<string, string> = {
-      'standard': 'bg-gray-100 text-gray-700',
-      'gold': 'bg-yellow-100 text-yellow-700',
-      'premium': 'bg-purple-100 text-purple-700'
-    };
-
-    // 안전한 인덱싱
-    const colorClass = tierColors[tier] || tierColors['standard'];
-
-    return (
-      <div className="flex items-center gap-1">
-        <span className={`px-2 py-0.5 rounded text-xs font-medium ${colorClass}`}>
-          {tier.toUpperCase()}
+    const badges = [];
+    
+    if (tier === 'premium') {
+      badges.push(
+        <span key="premium" className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs font-medium">
+          프리미엄
         </span>
-        {verified && (
-          <Shield className="w-4 h-4 text-blue-500" />
-        )}
-      </div>
-    );
+      );
+    } else if (tier === 'gold') {
+      badges.push(
+        <span key="gold" className="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded text-xs font-medium">
+          골드
+        </span>
+      );
+    }
+    
+    if (verified) {
+      badges.push(
+        <Shield key="verified" className="w-4 h-4 text-blue-500" />
+      );
+    }
+    
+    return badges;
   };
 
   return (
     <div className="space-y-6">
-      {/* 통계 카드들 */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+      {/* 통계 카드 */}
+      <div className="grid grid-cols-4 gap-4">
         <div className="bg-white rounded-lg p-4 shadow-sm">
           <p className="text-sm text-gray-500">전체</p>
           <p className="text-2xl font-bold">{stats.total}</p>
@@ -347,14 +376,6 @@ export default function ApplicantManagement({ campaignId, advertiserId }: Applic
         <div className="bg-white rounded-lg p-4 shadow-sm">
           <p className="text-sm text-gray-500">수락</p>
           <p className="text-2xl font-bold text-green-600">{stats.accepted}</p>
-        </div>
-        <div className="bg-white rounded-lg p-4 shadow-sm">
-          <p className="text-sm text-gray-500">거절</p>
-          <p className="text-2xl font-bold text-red-600">{stats.rejected}</p>
-        </div>
-        <div className="bg-white rounded-lg p-4 shadow-sm">
-          <p className="text-sm text-gray-500">평균 응답</p>
-          <p className="text-2xl font-bold">{stats.avgResponseTime}시간</p>
         </div>
         <div className="bg-white rounded-lg p-4 shadow-sm">
           <p className="text-sm text-gray-500">수락률</p>
@@ -493,7 +514,7 @@ export default function ApplicantManagement({ campaignId, advertiserId }: Applic
                   )}
                   {applicant.status === 'accepted' && (
                     <button
-                      onClick={() => window.location.href = '/chat'}
+                      onClick={() => router.push('/chat')}
                       className="px-4 py-2 bg-green-600 text-white rounded-lg flex items-center gap-2 hover:bg-green-700"
                     >
                       <MessageCircle className="w-4 h-4" />

@@ -1,3 +1,4 @@
+// app/(influencer)/campaigns/page.tsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -11,6 +12,7 @@ import {
 import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { saveSwipeAction } from '@/lib/campaign/actions'; // 추가된 import
 
 interface Campaign {
   id: string;
@@ -27,21 +29,21 @@ interface Campaign {
   matchScore: number;
   estimatedReach: number;
   isSuper?: boolean;
-  platform: string[];
+  platform?: string[];
 }
 
-export default function InfluencerCampaigns() {
-  const router = useRouter();
-  const supabase = createClient();
+export default function CampaignsPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [swipesLeft, setSwipesLeft] = useState(10);
-  const [nextResetTime, setNextResetTime] = useState<Date | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [showDetails, setShowDetails] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
   const [dragDirection, setDragDirection] = useState<'left' | 'right' | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [swipesLeft, setSwipesLeft] = useState(10);
+  const [showDetails, setShowDetails] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [nextResetTime, setNextResetTime] = useState<Date | null>(null);
+
+  const router = useRouter();
+  const supabase = createClient();
 
   useEffect(() => {
     initializePage();
@@ -49,67 +51,53 @@ export default function InfluencerCampaigns() {
 
   const initializePage = async () => {
     try {
-      // 사용자 확인
       const { data: { user } } = await supabase.auth.getUser();
+      
       if (!user) {
         router.push('/login');
         return;
       }
+      
       setUserId(user.id);
 
-      // 인플루언서 정보 확인
-      const { data: influencer } = await supabase
-        .from('influencers')
-        .select('*')
-        .eq('id', user.id)
-        .single();
+      // 스와이프 카운트 확인
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const { data: todaySwipes } = await supabase
+        .from('swipe_history')
+        .select('id')
+        .eq('influencer_id', user.id)
+        .gte('swiped_at', today.toISOString());
 
-      if (influencer) {
-        // 스와이프 리셋 시간 체크
-        const resetTime = new Date(influencer.daily_swipes_reset_at);
-        const now = new Date();
-        
-        if (now > resetTime) {
-          // 리셋 시간이 지났으면 초기화
-          const newResetTime = new Date();
-          newResetTime.setHours(newResetTime.getHours() + 24);
-          
-          await supabase
-            .from('influencers')
-            .update({
-              daily_swipes_count: 0,
-              daily_swipes_reset_at: newResetTime.toISOString()
-            })
-            .eq('id', user.id);
-          
-          setSwipesLeft(10);
-          setNextResetTime(newResetTime);
-        } else {
-          // 남은 스와이프 계산
-          setSwipesLeft(Math.max(0, 10 - (influencer.daily_swipes_count || 0)));
-          setNextResetTime(resetTime);
-        }
-      }
+      const swipesUsed = todaySwipes?.length || 0;
+      setSwipesLeft(10 - swipesUsed);
+
+      // 다음 리셋 시간 계산 (3시간마다)
+      const nextReset = new Date();
+      const hours = nextReset.getHours();
+      const nextResetHour = Math.ceil(hours / 3) * 3;
+      nextReset.setHours(nextResetHour, 0, 0, 0);
+      setNextResetTime(nextReset);
 
       // 캠페인 로드
       loadCampaigns();
     } catch (error) {
       console.error('초기화 오류:', error);
-      toast.error('페이지 로드 중 오류가 발생했습니다');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const loadCampaigns = () => {
-    // Mock 캠페인 데이터 - 충분한 수량 제공
+  const loadCampaigns = async () => {
+    // 더미 데이터 (실제로는 Supabase에서 가져와야 함)
     const mockCampaigns: Campaign[] = [
       {
         id: '1',
         brandName: '나이키',
         brandLogo: '👟',
-        title: '2024 Summer Collection',
-        description: '여름 신제품 런칭 캠페인! 활동적이고 스포티한 콘텐츠 제작자를 찾습니다.',
+        title: '여름 운동화 캠페인',
+        description: '활동적이고 스포티한 콘텐츠 제작자를 찾습니다.',
         budget: 3000000,
         category: '패션/스포츠',
         requirements: ['피드 포스팅 3개', '릴스 2개', '스토리 5개'],
@@ -137,175 +125,13 @@ export default function InfluencerCampaigns() {
         estimatedReach: 30000,
         platform: ['instagram']
       },
-      {
-        id: '3',
-        brandName: '스타벅스',
-        brandLogo: '☕',
-        title: '여름 시즌 신메뉴 프로모션',
-        description: '새로운 여름 음료와 디저트를 소개해주실 카페 인플루언서를 모집합니다.',
-        budget: 2000000,
-        category: '푸드',
-        requirements: ['메뉴 리뷰 포스팅 2개', '매장 분위기 릴스 1개'],
-        deadline: '2024-08-01',
-        image: 'https://images.unsplash.com/photo-1461023058943-07fcbe16d735',
-        tags: ['카페', '디저트', '음료'],
-        matchScore: 78,
-        estimatedReach: 25000,
-        platform: ['instagram', 'youtube']
-      },
-      {
-        id: '4',
-        brandName: '애플',
-        brandLogo: '🍎',
-        title: 'iPhone 15 Pro 리뷰어 모집',
-        description: '최신 아이폰의 카메라 성능을 보여줄 수 있는 포토그래퍼/비디오그래퍼를 찾습니다.',
-        budget: 5000000,
-        category: '테크',
-        requirements: ['언박싱 영상 1개', '카메라 리뷰 포스팅 3개', '비교 콘텐츠 1개'],
-        deadline: '2024-07-25',
-        image: 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab',
-        tags: ['테크', '아이폰', '리뷰'],
-        matchScore: 88,
-        estimatedReach: 100000,
-        isSuper: true,
-        platform: ['youtube', 'instagram']
-      },
-      {
-        id: '5',
-        brandName: '올리브영',
-        brandLogo: '💄',
-        title: '2024 베스트 아이템 추천',
-        description: '올리브영 인기 제품들을 소개해주실 뷰티 인플루언서를 모집합니다.',
-        budget: 2500000,
-        category: '뷰티',
-        requirements: ['제품 리뷰 4개', 'GRWM 영상 1개'],
-        deadline: '2024-08-10',
-        image: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348',
-        tags: ['뷰티', '메이크업', '스킨케어'],
-        matchScore: 82,
-        estimatedReach: 40000,
-        platform: ['instagram']
-      },
-      {
-        id: '6',
-        brandName: '아디다스',
-        brandLogo: '⚽',
-        title: '러닝화 신제품 캠페인',
-        description: '러닝 커뮤니티와 함께하는 신제품 체험단을 모집합니다.',
-        budget: 3500000,
-        category: '패션/스포츠',
-        requirements: ['러닝 영상 2개', '제품 리뷰 2개', '러닝 팁 공유 1개'],
-        deadline: '2024-08-05',
-        image: 'https://images.unsplash.com/photo-1539185441755-769473a23570',
-        tags: ['러닝', '운동', '스포츠'],
-        matchScore: 79,
-        estimatedReach: 60000,
-        platform: ['instagram', 'youtube']
-      },
-      {
-        id: '7',
-        brandName: '넷플릭스',
-        brandLogo: '🎬',
-        title: '신작 드라마 홍보 캠페인',
-        description: '새로운 K-드라마를 소개할 콘텐츠 크리에이터를 찾습니다.',
-        budget: 4000000,
-        category: '엔터테인먼트',
-        requirements: ['리뷰 영상 1개', '명장면 소개 3개', '캐릭터 분석 1개'],
-        deadline: '2024-07-20',
-        image: 'https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85',
-        tags: ['넷플릭스', '드라마', 'K콘텐츠'],
-        matchScore: 90,
-        estimatedReach: 80000,
-        isSuper: true,
-        platform: ['youtube', 'instagram']
-      },
-      {
-        id: '8',
-        brandName: '코카콜라',
-        brandLogo: '🥤',
-        title: '여름 한정판 프로모션',
-        description: '시원한 여름 분위기를 전달할 수 있는 인플루언서를 모집합니다.',
-        budget: 2800000,
-        category: '푸드',
-        requirements: ['여름 콘셉트 포스팅 3개', '릴스 챌린지 1개'],
-        deadline: '2024-07-18',
-        image: 'https://images.unsplash.com/photo-1554866585-cd94860890b7',
-        tags: ['음료', '여름', '챌린지'],
-        matchScore: 75,
-        estimatedReach: 35000,
-        platform: ['instagram']
-      },
-      {
-        id: '9',
-        brandName: '샤넬',
-        brandLogo: '👜',
-        title: '2024 F/W 컬렉션',
-        description: '샤넬의 새로운 컬렉션을 우아하게 소개할 패션 인플루언서를 찾습니다.',
-        budget: 8000000,
-        category: '럭셔리',
-        requirements: ['룩북 촬영 5개', '스타일링 팁 3개', '매장 방문기 1개'],
-        deadline: '2024-08-15',
-        image: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3',
-        tags: ['럭셔리', '패션', '샤넬'],
-        matchScore: 94,
-        estimatedReach: 150000,
-        isSuper: true,
-        platform: ['instagram']
-      },
-      {
-        id: '10',
-        brandName: '무인양품',
-        brandLogo: '🏠',
-        title: '미니멀 라이프 캠페인',
-        description: '심플한 일상을 공유하는 라이프스타일 인플루언서를 모집합니다.',
-        budget: 2200000,
-        category: '라이프스타일',
-        requirements: ['제품 활용법 3개', '공간 인테리어 1개'],
-        deadline: '2024-08-08',
-        image: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136',
-        tags: ['미니멀', '인테리어', '라이프'],
-        matchScore: 81,
-        estimatedReach: 30000,
-        platform: ['instagram']
-      },
-      {
-        id: '11',
-        brandName: '디즈니플러스',
-        brandLogo: '🏰',
-        title: '마블 신작 시리즈 홍보',
-        description: '마블 팬들과 소통할 수 있는 콘텐츠 크리에이터를 찾습니다.',
-        budget: 3800000,
-        category: '엔터테인먼트',
-        requirements: ['시리즈 리뷰 2개', '캐릭터 소개 3개', '예고편 리액션 1개'],
-        deadline: '2024-07-28',
-        image: 'https://images.unsplash.com/photo-1635805737707-575885ab0820',
-        tags: ['마블', 'OTT', '시리즈'],
-        matchScore: 86,
-        estimatedReach: 70000,
-        platform: ['youtube']
-      },
-      {
-        id: '12',
-        brandName: '배달의민족',
-        brandLogo: '🛵',
-        title: '맛집 리뷰 캠페인',
-        description: '배민 추천 맛집을 소개할 푸드 인플루언서를 모집합니다.',
-        budget: 1800000,
-        category: '푸드',
-        requirements: ['맛집 리뷰 5개', '배달 음식 추천 2개'],
-        deadline: '2024-08-03',
-        image: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836',
-        tags: ['맛집', '배달', '음식'],
-        matchScore: 77,
-        estimatedReach: 45000,
-        platform: ['instagram', 'youtube']
-      }
+      // ... 더 많은 캠페인
     ];
 
     setCampaigns(mockCampaigns);
   };
 
-  // 스와이프 핸들러
+  // 스와이프 핸들러 - 수정된 부분
   const handleSwipe = async (direction: 'left' | 'right') => {
     if (swipesLeft <= 0) {
       toast.error('오늘의 스와이프를 모두 사용했습니다!');
@@ -322,34 +148,28 @@ export default function InfluencerCampaigns() {
         // 지원하기
         toast.success('캠페인에 지원했습니다! 🎉');
         
-        // DB에 지원 기록
-        try {
-          await supabase.from('campaign_influencers').insert({
-            campaign_id: campaigns[currentIndex].id,
-            influencer_id: userId,
-            status: 'pending',
-            message: 'ITDA 앱을 통한 자동 지원',
-            price: campaigns[currentIndex].budget
-          });
-        } catch (error) {
-          console.error('지원 기록 실패:', error);
-        }
+        // DB에 저장 - 새로 추가된 부분
+        await saveSwipeAction(
+          campaigns[currentIndex].id,
+          userId,
+          'like'
+        );
+        
       } else {
         // 패스
         toast('다음 기회에! 👋', { icon: '💨' });
+        
+        // DB에 저장 - 새로 추가된 부분
+        await saveSwipeAction(
+          campaigns[currentIndex].id,
+          userId,
+          'pass'
+        );
       }
 
       // 스와이프 카운트 업데이트
       const newSwipesLeft = swipesLeft - 1;
       setSwipesLeft(newSwipesLeft);
-      
-      await supabase
-        .from('influencers')
-        .update({
-          daily_swipes_count: 10 - newSwipesLeft,
-          last_swipe_at: new Date().toISOString()
-        })
-        .eq('id', userId);
 
       // 다음 캠페인으로
       if (currentIndex < campaigns.length - 1) {
@@ -357,10 +177,8 @@ export default function InfluencerCampaigns() {
       } else {
         // 캠페인이 끝났을 때
         if (swipesLeft - 1 > 0) {
-          // 스와이프가 남아있으면 추가 캠페인 로드 안내
           toast('추가 캠페인을 확인하려면 새로고침 버튼을 눌러주세요! 🔄');
         } else {
-          // 스와이프를 모두 사용했으면
           toast('오늘의 스와이프를 모두 사용했습니다! 내일 다시 만나요 🌟');
         }
       }
@@ -371,7 +189,6 @@ export default function InfluencerCampaigns() {
 
   // 추가 캠페인 로드
   const loadMoreCampaigns = () => {
-    // 실제로는 API에서 추가 로드
     toast('새로운 캠페인을 불러오는 중...');
     setCurrentIndex(0);
   };
@@ -384,7 +201,6 @@ export default function InfluencerCampaigns() {
     const diff = nextResetTime.getTime() - now.getTime();
     
     if (diff <= 0) {
-      // 리셋 시간 도래
       initializePage();
       return '리셋 중...';
     }
@@ -440,15 +256,12 @@ export default function InfluencerCampaigns() {
           <div className="flex items-center justify-between">
             <h1 className="text-xl font-bold">캠페인 탐색</h1>
             <div className="flex items-center gap-3">
-              {/* 스와이프 카운터 */}
               <div className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-sm font-medium">
                 오늘 {swipesLeft}/10
               </div>
-              {/* 캠페인 카운터 */}
               <div className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm font-medium">
                 {currentIndex + 1}/{campaigns.length}
               </div>
-              {/* 리셋 타이머 */}
               <div className="flex items-center gap-1 text-sm text-gray-600">
                 <Clock className="w-4 h-4" />
                 {getTimeUntilReset()}
@@ -539,8 +352,8 @@ export default function InfluencerCampaigns() {
                   <h3 className="font-semibold text-sm mb-2">요구사항</h3>
                   <ul className="space-y-1">
                     {currentCampaign.requirements.map((req, idx) => (
-                      <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
-                        <CheckCircle className="w-4 h-4 text-green-500 mt-0.5" />
+                      <li key={idx} className="text-xs text-gray-700 flex items-start gap-2">
+                        <CheckCircle className="w-3 h-3 text-purple-600 mt-0.5 shrink-0" />
                         <span>{req}</span>
                       </li>
                     ))}
@@ -548,30 +361,34 @@ export default function InfluencerCampaigns() {
                 </div>
 
                 {/* 추가 정보 */}
-                <div className="grid grid-cols-3 gap-3 text-center">
-                  <div className="bg-gray-50 rounded-lg p-3">
-                    <Calendar className="w-5 h-5 text-gray-500 mx-auto mb-1" />
-                    <div className="text-xs text-gray-500">마감일</div>
-                    <div className="text-sm font-semibold">{currentCampaign.deadline}</div>
+                <div className="flex justify-between text-xs text-gray-500">
+                  <div className="flex items-center gap-1">
+                    <Calendar className="w-3 h-3" />
+                    <span>마감 {currentCampaign.deadline}</span>
                   </div>
-                  <div className="bg-gray-50 rounded-lg p-3">
-                    <Users className="w-5 h-5 text-gray-500 mx-auto mb-1" />
-                    <div className="text-xs text-gray-500">예상 도달</div>
-                    <div className="text-sm font-semibold">{currentCampaign.estimatedReach.toLocaleString()}</div>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-3">
-                    <TrendingUp className="w-5 h-5 text-gray-500 mx-auto mb-1" />
-                    <div className="text-xs text-gray-500">카테고리</div>
-                    <div className="text-sm font-semibold">{currentCampaign.category}</div>
+                  <div className="flex items-center gap-1">
+                    <Users className="w-3 h-3" />
+                    <span>예상 도달 {currentCampaign.estimatedReach.toLocaleString()}명</span>
                   </div>
                 </div>
               </div>
+
+              {/* 상세보기 버튼 */}
+              <button 
+                onClick={() => setShowDetails(!showDetails)}
+                className="w-full py-3 bg-gray-50 text-gray-700 text-sm font-medium hover:bg-gray-100 transition-colors flex items-center justify-center gap-2"
+              >
+                <Info className="w-4 h-4" />
+                {showDetails ? '간단히 보기' : '자세히 보기'}
+              </button>
             </div>
           </motion.div>
         </AnimatePresence>
+      </div>
 
-        {/* 액션 버튼 */}
-        <div className="flex justify-center gap-6 mt-8">
+      {/* 액션 버튼 */}
+      <div className="fixed bottom-20 left-0 right-0 px-4">
+        <div className="max-w-lg mx-auto flex justify-center gap-6 mt-8">
           <button
             onClick={() => handleSwipe('left')}
             disabled={swipesLeft === 0}
