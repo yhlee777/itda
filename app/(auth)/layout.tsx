@@ -1,32 +1,15 @@
+import React from 'react';
+
 export default function AuthLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
-    <>
-      {children}
-    </>
-  );
-}
-import { Toaster } from 'react-hot-toast';
-
-export default function RootLayout({ children }) {
-  return (
-    <html lang="ko">
-      <body>
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50">
+      <div className="flex min-h-screen items-center justify-center p-4">
         {children}
-        <Toaster 
-          position="top-center"
-          toastOptions={{
-            duration: 3000,
-            style: {
-              background: '#333',
-              color: '#fff',
-            },
-          }}
-        />
-      </body>
-    </html>
+      </div>
+    </div>
   );
 }

@@ -1,947 +1,624 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { motion, AnimatePresence, useMotionValue, useTransform, PanInfo } from 'framer-motion';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Heart, X, Info, Clock, DollarSign, MapPin, 
-  TrendingUp, Users, Calendar, Star, ChevronLeft, 
-  Filter, Search, Sparkles, Shield, Zap, Crown,
-  Eye, MessageCircle, CheckCircle, AlertCircle,
-  ArrowRight, Award, Flame, Target, Gift,
-  ChevronUp, ArrowUp, Lock, Timer, RefreshCw,
-  Bot, Brain, BarChart
+  Heart, X, Star, Share2, Clock, TrendingUp, Users, 
+  DollarSign, Calendar, ChevronLeft, ChevronRight,
+  Sparkles, Zap, AlertCircle, Info, Instagram, Youtube,
+  Coffee, CheckCircle, XCircle, Shield, RefreshCw
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-
-// AI 분석 임포트
-import { AIPricePredictor } from '@/lib/ai/price-predictor';
-import { AIAnalyzer } from '@/lib/ai/analyzer';
 
 interface Campaign {
   id: string;
-  brand: string;
-  brandLogo?: string;
+  brandName: string;
+  brandLogo: string;
   title: string;
+  description: string;
   budget: number;
-  deadline: string;
-  location: string;
   category: string;
   requirements: string[];
+  deadline: string;
+  image: string;
+  tags: string[];
   matchScore: number;
-  applicants: number;
-  viewingNow: number;
-  image?: string;
-  description?: string;
-  deliverables?: string[];
-  isVIP?: boolean;
-  isPremium?: boolean;
-  urgency?: 'low' | 'medium' | 'high';
-  perks?: string[];
-  minFollowers?: number;
-  targetGender?: string;
-  targetAge?: string;
-  aiPredictedPrice?: number;
-  priceConfidence?: number;
+  estimatedReach: number;
+  isSuper?: boolean;
+  platform: string[];
 }
 
-// DB 캠페인을 UI 캠페인으로 변환하는 안전한 함수
-const transformDBCampaign = (dbCampaign: any): Campaign => {
-  try {
-    // 안전한 변환을 위한 기본값 설정
-    return {
-      id: String(dbCampaign?.id || Math.random()),
-      brand: dbCampaign?.metadata?.brand_name || dbCampaign?.name || 'Unknown Brand',
-      brandLogo: dbCampaign?.metadata?.brand_logo || 'https://via.placeholder.com/50',
-      title: dbCampaign?.name || 'Untitled Campaign',
-      budget: Number(dbCampaign?.budget) || 1000000,
-      deadline: dbCampaign?.end_date 
-        ? new Date(dbCampaign.end_date).toLocaleDateString('ko-KR') 
-        : '미정',
-      location: dbCampaign?.metadata?.location || 
-                dbCampaign?.target_audience?.location || 
-                '서울',
-      category: Array.isArray(dbCampaign?.categories) && dbCampaign.categories.length > 0 
-        ? dbCampaign.categories[0] 
-        : '기타',
-      requirements: Array.isArray(dbCampaign?.requirements) 
-        ? dbCampaign.requirements 
-        : [],
-      matchScore: Math.floor(Math.random() * 30) + 70, // 70-100 사이의 임시 점수
-      applicants: Number(dbCampaign?.application_count) || 0,
-      viewingNow: Math.floor((Number(dbCampaign?.view_count) || 0) / 10),
-      image: dbCampaign?.metadata?.image || 
-             `https://picsum.photos/seed/${dbCampaign?.id || Math.random()}/800/800`,
-      description: dbCampaign?.description || '',
-      deliverables: Array.isArray(dbCampaign?.deliverables?.items) 
-        ? dbCampaign.deliverables.items 
-        : Array.isArray(dbCampaign?.deliverables) 
-          ? dbCampaign.deliverables 
-          : [],
-      isVIP: dbCampaign?.metadata?.is_vip === true,
-      isPremium: dbCampaign?.is_premium === true,
-      urgency: dbCampaign?.urgency || 'medium',
-      perks: Array.isArray(dbCampaign?.metadata?.perks) 
-        ? dbCampaign.metadata.perks 
-        : [],
-      minFollowers: Number(dbCampaign?.min_followers) || 0,
-      targetGender: dbCampaign?.target_audience?.gender || '전체',
-      targetAge: dbCampaign?.target_audience?.age_range || '전연령',
-    };
-  } catch (error) {
-    console.error('캠페인 변환 에러:', error, dbCampaign);
-    // 에러 시 기본 캠페인 반환
-    return {
-      id: String(Math.random()),
-      brand: 'Unknown Brand',
-      brandLogo: 'https://via.placeholder.com/50',
-      title: 'Campaign',
-      budget: 1000000,
-      deadline: '미정',
-      location: '서울',
-      category: '기타',
-      requirements: [],
-      matchScore: 70,
-      applicants: 0,
-      viewingNow: 0,
-      image: 'https://picsum.photos/800/800',
-      description: '',
-      deliverables: [],
-      isVIP: false,
-      isPremium: false,
-      urgency: 'medium',
-      perks: [],
-      minFollowers: 0,
-      targetGender: '전체',
-      targetAge: '전연령',
-    };
-  }
-};
-
-interface SwipeSession {
-  remainingSwipes: number;
-  nextRefreshTime: Date;
-  categoriesViewed: string[];
-  sessionStartTime: Date;
-}
-
-export default function ImprovedCampaignsPage() {
+export default function InfluencerCampaigns() {
   const router = useRouter();
   const supabase = createClient();
-  
-  // 상태 관리
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [swipesLeft, setSwipesLeft] = useState(10);
+  const [nextResetTime, setNextResetTime] = useState<Date | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [showDetails, setShowDetails] = useState(false);
-  const [showAIAnalysis, setShowAIAnalysis] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  
-  // 스와이프 세션 관리
-  const [session, setSession] = useState<SwipeSession>({
-    remainingSwipes: 10,
-    nextRefreshTime: new Date(Date.now() + 3 * 60 * 60 * 1000), // 3시간 후
-    categoriesViewed: [],
-    sessionStartTime: new Date()
-  });
-  
-  // 카테고리 우선순위
-  const [userPreferredCategories, setUserPreferredCategories] = useState<string[]>([
-    '패션', '뷰티', '라이프스타일' // 사용자 프로필에서 가져옴
-  ]);
-  
-  // AI 가격 예측 결과
-  const [pricePrediction, setPricePrediction] = useState<{
-    estimatedPrice: number;
-    minPrice: number;
-    maxPrice: number;
-    confidence: number;
-    recommendation: string;
-  } | null>(null);
-  
-  // 모션 값
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-  const rotate = useTransform(x, [-200, 200], [-30, 30]);
-  const opacity = useTransform(x, [-200, -100, 0, 100, 200], [0, 1, 1, 1, 0]);
-  
-  const cardRef = useRef<HTMLDivElement>(null);
+  const [dragDirection, setDragDirection] = useState<'left' | 'right' | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
 
-  // 캠페인 로드 (카테고리 우선순위 적용)
   useEffect(() => {
-    loadCampaigns();
-    loadSession();
-    startRefreshTimer();
+    initializePage();
   }, []);
 
-  const loadCampaigns = async () => {
-    setIsLoading(true);
-    
+  const initializePage = async () => {
     try {
-      // 1. 선호 카테고리 캠페인 먼저 로드
-      const { data: preferredCampaigns, error: prefError } = await supabase
-        .from('campaigns')
-        .select('*')
-        .contains('categories', userPreferredCategories)
-        .eq('status', 'active')
-        .order('urgency', { ascending: false })
-        .limit(5);
-      
-      if (prefError) {
-        console.error('선호 캠페인 로드 에러:', prefError);
+      // 사용자 확인
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push('/login');
+        return;
       }
-      
-      // 2. 그 외 카테고리 캠페인 로드
-      const { data: otherCampaigns, error: otherError } = await supabase
-        .from('campaigns')
+      setUserId(user.id);
+
+      // 인플루언서 정보 확인
+      const { data: influencer } = await supabase
+        .from('influencers')
         .select('*')
-        .eq('status', 'active')
-        .order('view_count', { ascending: false })
-        .limit(5);
-      
-      if (otherError) {
-        console.error('기타 캠페인 로드 에러:', otherError);
+        .eq('id', user.id)
+        .single();
+
+      if (influencer) {
+        // 스와이프 리셋 시간 체크
+        const resetTime = new Date(influencer.daily_swipes_reset_at);
+        const now = new Date();
+        
+        if (now > resetTime) {
+          // 리셋 시간이 지났으면 초기화
+          const newResetTime = new Date();
+          newResetTime.setHours(newResetTime.getHours() + 24);
+          
+          await supabase
+            .from('influencers')
+            .update({
+              daily_swipes_count: 0,
+              daily_swipes_reset_at: newResetTime.toISOString()
+            })
+            .eq('id', user.id);
+          
+          setSwipesLeft(10);
+          setNextResetTime(newResetTime);
+        } else {
+          // 남은 스와이프 계산
+          setSwipesLeft(Math.max(0, 10 - (influencer.daily_swipes_count || 0)));
+          setNextResetTime(resetTime);
+        }
       }
-      
-      // 3. 캠페인 병합 및 변환
-      const allDBCampaigns = [...(preferredCampaigns || []), ...(otherCampaigns || [])];
-      const transformedCampaigns: Campaign[] = allDBCampaigns
-        .filter(Boolean) // null/undefined 제거
-        .map((dbCampaign) => transformDBCampaign(dbCampaign));
-      
-      // 4. 각 캠페인에 대한 AI 가격 예측
-      const campaignsWithAI = await Promise.all(
-        transformedCampaigns.map(async (campaign) => {
-          const prediction = await predictCampaignPrice(campaign);
-          return {
-            ...campaign,
-            aiPredictedPrice: prediction?.estimatedPrice,
-            priceConfidence: prediction?.confidence
-          };
-        })
-      );
-      
-      setCampaigns(campaignsWithAI);
+
+      // 캠페인 로드
+      loadCampaigns();
     } catch (error) {
-      console.error('캠페인 로드 실패:', error);
-      toast.error('캠페인을 불러오는데 실패했습니다');
+      console.error('초기화 오류:', error);
+      toast.error('페이지 로드 중 오류가 발생했습니다');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // AI 가격 예측
-  const predictCampaignPrice = async (campaign: Campaign) => {
-    try {
-      // 사용자 정보 가져오기 (실제로는 세션에서)
-      const userProfile = {
-        followers: 50000,
-        engagementRate: 3.5,
-        category: '패션',
-        previousCampaigns: 10,
-        averageRating: 4.5
-      };
-      
-      const prediction = await AIPricePredictor.predictPrice({
-        influencerId: 'current-user-id',
-        campaignId: campaign.id,
-        category: campaign.category || '기타',
-        followers: userProfile.followers,
-        engagementRate: userProfile.engagementRate,
-        deliverables: campaign.deliverables || [],
-        duration: 14,
-        previousCampaigns: userProfile.previousCampaigns,
-        averageRating: userProfile.averageRating,
-        region: campaign.location || '서울'
-      });
-      
-      return prediction;
-    } catch (error) {
-      console.error('가격 예측 실패:', error);
-      return null;
-    }
-  };
-
-  // 세션 로드
-  const loadSession = () => {
-    const savedSession = localStorage.getItem('swipeSession');
-    if (savedSession) {
-      const parsed = JSON.parse(savedSession);
-      const nextRefresh = new Date(parsed.nextRefreshTime);
-      
-      // 리프레시 시간이 지났으면 초기화
-      if (nextRefresh < new Date()) {
-        resetSession();
-      } else {
-        setSession({
-          ...parsed,
-          nextRefreshTime: nextRefresh,
-          sessionStartTime: new Date(parsed.sessionStartTime)
-        });
+  const loadCampaigns = () => {
+    // Mock 캠페인 데이터 - 충분한 수량 제공
+    const mockCampaigns: Campaign[] = [
+      {
+        id: '1',
+        brandName: '나이키',
+        brandLogo: '👟',
+        title: '2024 Summer Collection',
+        description: '여름 신제품 런칭 캠페인! 활동적이고 스포티한 콘텐츠 제작자를 찾습니다.',
+        budget: 3000000,
+        category: '패션/스포츠',
+        requirements: ['피드 포스팅 3개', '릴스 2개', '스토리 5개'],
+        deadline: '2024-07-30',
+        image: 'https://images.unsplash.com/photo-1556906781-9a412961c28c',
+        tags: ['스포츠', '피트니스', '여름'],
+        matchScore: 92,
+        estimatedReach: 50000,
+        isSuper: true,
+        platform: ['instagram', 'youtube']
+      },
+      {
+        id: '2',
+        brandName: '이니스프리',
+        brandLogo: '🌿',
+        title: '그린티 씨드 세럼 체험단',
+        description: '자연주의 스킨케어 제품 리뷰! 피부 고민이 있는 분들의 솔직한 후기를 원합니다.',
+        budget: 1500000,
+        category: '뷰티',
+        requirements: ['사용 후기 포스팅 2개', '비포애프터 릴스 1개'],
+        deadline: '2024-07-15',
+        image: 'https://images.unsplash.com/photo-1598440947619-2c35fc9aa908',
+        tags: ['스킨케어', '뷰티', 'K뷰티'],
+        matchScore: 85,
+        estimatedReach: 30000,
+        platform: ['instagram']
+      },
+      {
+        id: '3',
+        brandName: '스타벅스',
+        brandLogo: '☕',
+        title: '여름 시즌 신메뉴 프로모션',
+        description: '새로운 여름 음료와 디저트를 소개해주실 카페 인플루언서를 모집합니다.',
+        budget: 2000000,
+        category: '푸드',
+        requirements: ['메뉴 리뷰 포스팅 2개', '매장 분위기 릴스 1개'],
+        deadline: '2024-08-01',
+        image: 'https://images.unsplash.com/photo-1461023058943-07fcbe16d735',
+        tags: ['카페', '디저트', '음료'],
+        matchScore: 78,
+        estimatedReach: 25000,
+        platform: ['instagram', 'youtube']
+      },
+      {
+        id: '4',
+        brandName: '애플',
+        brandLogo: '🍎',
+        title: 'iPhone 15 Pro 리뷰어 모집',
+        description: '최신 아이폰의 카메라 성능을 보여줄 수 있는 포토그래퍼/비디오그래퍼를 찾습니다.',
+        budget: 5000000,
+        category: '테크',
+        requirements: ['언박싱 영상 1개', '카메라 리뷰 포스팅 3개', '비교 콘텐츠 1개'],
+        deadline: '2024-07-25',
+        image: 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab',
+        tags: ['테크', '아이폰', '리뷰'],
+        matchScore: 88,
+        estimatedReach: 100000,
+        isSuper: true,
+        platform: ['youtube', 'instagram']
+      },
+      {
+        id: '5',
+        brandName: '올리브영',
+        brandLogo: '💄',
+        title: '2024 베스트 아이템 추천',
+        description: '올리브영 인기 제품들을 소개해주실 뷰티 인플루언서를 모집합니다.',
+        budget: 2500000,
+        category: '뷰티',
+        requirements: ['제품 리뷰 4개', 'GRWM 영상 1개'],
+        deadline: '2024-08-10',
+        image: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348',
+        tags: ['뷰티', '메이크업', '스킨케어'],
+        matchScore: 82,
+        estimatedReach: 40000,
+        platform: ['instagram']
+      },
+      {
+        id: '6',
+        brandName: '아디다스',
+        brandLogo: '⚽',
+        title: '러닝화 신제품 캠페인',
+        description: '러닝 커뮤니티와 함께하는 신제품 체험단을 모집합니다.',
+        budget: 3500000,
+        category: '패션/스포츠',
+        requirements: ['러닝 영상 2개', '제품 리뷰 2개', '러닝 팁 공유 1개'],
+        deadline: '2024-08-05',
+        image: 'https://images.unsplash.com/photo-1539185441755-769473a23570',
+        tags: ['러닝', '운동', '스포츠'],
+        matchScore: 79,
+        estimatedReach: 60000,
+        platform: ['instagram', 'youtube']
+      },
+      {
+        id: '7',
+        brandName: '넷플릭스',
+        brandLogo: '🎬',
+        title: '신작 드라마 홍보 캠페인',
+        description: '새로운 K-드라마를 소개할 콘텐츠 크리에이터를 찾습니다.',
+        budget: 4000000,
+        category: '엔터테인먼트',
+        requirements: ['리뷰 영상 1개', '명장면 소개 3개', '캐릭터 분석 1개'],
+        deadline: '2024-07-20',
+        image: 'https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85',
+        tags: ['넷플릭스', '드라마', 'K콘텐츠'],
+        matchScore: 90,
+        estimatedReach: 80000,
+        isSuper: true,
+        platform: ['youtube', 'instagram']
+      },
+      {
+        id: '8',
+        brandName: '코카콜라',
+        brandLogo: '🥤',
+        title: '여름 한정판 프로모션',
+        description: '시원한 여름 분위기를 전달할 수 있는 인플루언서를 모집합니다.',
+        budget: 2800000,
+        category: '푸드',
+        requirements: ['여름 콘셉트 포스팅 3개', '릴스 챌린지 1개'],
+        deadline: '2024-07-18',
+        image: 'https://images.unsplash.com/photo-1554866585-cd94860890b7',
+        tags: ['음료', '여름', '챌린지'],
+        matchScore: 75,
+        estimatedReach: 35000,
+        platform: ['instagram']
+      },
+      {
+        id: '9',
+        brandName: '샤넬',
+        brandLogo: '👜',
+        title: '2024 F/W 컬렉션',
+        description: '샤넬의 새로운 컬렉션을 우아하게 소개할 패션 인플루언서를 찾습니다.',
+        budget: 8000000,
+        category: '럭셔리',
+        requirements: ['룩북 촬영 5개', '스타일링 팁 3개', '매장 방문기 1개'],
+        deadline: '2024-08-15',
+        image: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3',
+        tags: ['럭셔리', '패션', '샤넬'],
+        matchScore: 94,
+        estimatedReach: 150000,
+        isSuper: true,
+        platform: ['instagram']
+      },
+      {
+        id: '10',
+        brandName: '무인양품',
+        brandLogo: '🏠',
+        title: '미니멀 라이프 캠페인',
+        description: '심플한 일상을 공유하는 라이프스타일 인플루언서를 모집합니다.',
+        budget: 2200000,
+        category: '라이프스타일',
+        requirements: ['제품 활용법 3개', '공간 인테리어 1개'],
+        deadline: '2024-08-08',
+        image: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136',
+        tags: ['미니멀', '인테리어', '라이프'],
+        matchScore: 81,
+        estimatedReach: 30000,
+        platform: ['instagram']
+      },
+      {
+        id: '11',
+        brandName: '디즈니플러스',
+        brandLogo: '🏰',
+        title: '마블 신작 시리즈 홍보',
+        description: '마블 팬들과 소통할 수 있는 콘텐츠 크리에이터를 찾습니다.',
+        budget: 3800000,
+        category: '엔터테인먼트',
+        requirements: ['시리즈 리뷰 2개', '캐릭터 소개 3개', '예고편 리액션 1개'],
+        deadline: '2024-07-28',
+        image: 'https://images.unsplash.com/photo-1635805737707-575885ab0820',
+        tags: ['마블', 'OTT', '시리즈'],
+        matchScore: 86,
+        estimatedReach: 70000,
+        platform: ['youtube']
+      },
+      {
+        id: '12',
+        brandName: '배달의민족',
+        brandLogo: '🛵',
+        title: '맛집 리뷰 캠페인',
+        description: '배민 추천 맛집을 소개할 푸드 인플루언서를 모집합니다.',
+        budget: 1800000,
+        category: '푸드',
+        requirements: ['맛집 리뷰 5개', '배달 음식 추천 2개'],
+        deadline: '2024-08-03',
+        image: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836',
+        tags: ['맛집', '배달', '음식'],
+        matchScore: 77,
+        estimatedReach: 45000,
+        platform: ['instagram', 'youtube']
       }
-    }
+    ];
+
+    setCampaigns(mockCampaigns);
   };
 
-  // 세션 리셋
-  const resetSession = () => {
-    const newSession: SwipeSession = {
-      remainingSwipes: 10,
-      nextRefreshTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
-      categoriesViewed: [],
-      sessionStartTime: new Date()
-    };
-    setSession(newSession);
-    localStorage.setItem('swipeSession', JSON.stringify(newSession));
-    toast.success('스와이프가 초기화되었습니다! 10개의 새로운 캠페인을 확인하세요 🎉');
-  };
-
-  // 리프레시 타이머
-  const startRefreshTimer = () => {
-    const interval = setInterval(() => {
-      const now = new Date();
-      if (session.nextRefreshTime <= now) {
-        resetSession();
-        loadCampaigns();
-      }
-    }, 60000); // 1분마다 체크
-    
-    return () => clearInterval(interval);
-  };
-
-  // 스와이프 처리
-  const handleSwipe = async (direction: 'left' | 'right' | 'super') => {
-    if (session.remainingSwipes <= 0) {
-      toast.error(
-        `오늘의 스와이프를 모두 사용했습니다. ${formatTimeRemaining(session.nextRefreshTime)}후에 다시 시도해주세요.`,
-        { icon: '⏰' }
-      );
+  // 스와이프 핸들러
+  const handleSwipe = async (direction: 'left' | 'right') => {
+    if (swipesLeft <= 0) {
+      toast.error('오늘의 스와이프를 모두 사용했습니다!');
       return;
     }
 
-    const currentCampaign = campaigns[currentIndex];
-    
-    // 스와이프 기록 저장
-    await saveSwipeHistory(currentCampaign.id, direction);
-    
-    // 카테고리 기록
-    if (!session.categoriesViewed.includes(currentCampaign.category)) {
-      session.categoriesViewed.push(currentCampaign.category);
-    }
-    
-    // 남은 스와이프 감소
-    const newSession = {
-      ...session,
-      remainingSwipes: session.remainingSwipes - 1,
-      categoriesViewed: session.categoriesViewed
-    };
-    setSession(newSession);
-    localStorage.setItem('swipeSession', JSON.stringify(newSession));
+    if (!userId) return;
 
-    // 액션별 처리
-    if (direction === 'right') {
-      await applyCampaign(currentCampaign);
-      toast.success('지원 완료! AI가 최적 단가를 분석중입니다 🤖');
-    } else if (direction === 'super') {
-      await superLikeCampaign(currentCampaign);
-      toast.success('슈퍼라이크! 우선 매칭 대상이 되었습니다 ⭐');
-    } else {
-      toast('다음 기회에 만나요 👋');
-    }
-
-    // 다음 캠페인으로
-    if (currentIndex < campaigns.length - 1) {
-      setCurrentIndex(prev => prev + 1);
-    } else {
-      // 캠페인 끝
-      if (session.remainingSwipes > 0) {
-        toast('더 많은 캠페인을 불러오는 중...', { icon: '⏳' });
-        await loadMoreCampaigns();
+    setDragDirection(direction);
+    
+    // 애니메이션 후 처리
+    setTimeout(async () => {
+      if (direction === 'right') {
+        // 지원하기
+        toast.success('캠페인에 지원했습니다! 🎉');
+        
+        // DB에 지원 기록
+        try {
+          await supabase.from('campaign_influencers').insert({
+            campaign_id: campaigns[currentIndex].id,
+            influencer_id: userId,
+            status: 'pending',
+            message: 'ITDA 앱을 통한 자동 지원',
+            price: campaigns[currentIndex].budget
+          });
+        } catch (error) {
+          console.error('지원 기록 실패:', error);
+        }
+      } else {
+        // 패스
+        toast('다음 기회에! 👋', { icon: '💨' });
       }
-    }
-  };
 
-  // 스와이프 기록 저장
-  const saveSwipeHistory = async (campaignId: string, action: string) => {
-    try {
-      await supabase.from('swipe_history').insert({
-        influencer_id: 'current-user-id', // 실제로는 세션에서
-        campaign_id: campaignId,
-        action: action === 'right' ? 'like' : action === 'super' ? 'super_like' : 'pass',
-        category_match: userPreferredCategories.includes(campaigns[currentIndex].category),
-        match_score: campaigns[currentIndex].matchScore
-      });
-    } catch (error) {
-      console.error('스와이프 기록 실패:', error);
-    }
-  };
+      // 스와이프 카운트 업데이트
+      const newSwipesLeft = swipesLeft - 1;
+      setSwipesLeft(newSwipesLeft);
+      
+      await supabase
+        .from('influencers')
+        .update({
+          daily_swipes_count: 10 - newSwipesLeft,
+          last_swipe_at: new Date().toISOString()
+        })
+        .eq('id', userId);
 
-  // 캠페인 지원
-  const applyCampaign = async (campaign: Campaign) => {
-    try {
-      await supabase.from('campaign_influencers').insert({
-        campaign_id: campaign.id,
-        influencer_id: 'current-user-id',
-        price: pricePrediction?.estimatedPrice || campaign.budget,
-        message: 'AI 추천 단가로 지원합니다',
-        status: 'pending',
-        match_score: campaign.matchScore
-      });
-    } catch (error) {
-      console.error('지원 실패:', error);
-    }
-  };
-
-  // 슈퍼라이크 (메타데이터로 저장)
-  const superLikeCampaign = async (campaign: Campaign) => {
-    try {
-      // 스와이프 히스토리에 super_like로 저장
-      await supabase.from('swipe_history').insert({
-        campaign_id: campaign.id,
-        influencer_id: 'current-user-id',
-        action: 'super_like',
-        category_match: userPreferredCategories.includes(campaign.category),
-        match_score: campaign.matchScore
-      });
-    } catch (error) {
-      console.error('슈퍼라이크 실패:', error);
-    }
+      // 다음 캠페인으로
+      if (currentIndex < campaigns.length - 1) {
+        setCurrentIndex(currentIndex + 1);
+      } else {
+        // 캠페인이 끝났을 때
+        if (swipesLeft - 1 > 0) {
+          // 스와이프가 남아있으면 추가 캠페인 로드 안내
+          toast('추가 캠페인을 확인하려면 새로고침 버튼을 눌러주세요! 🔄');
+        } else {
+          // 스와이프를 모두 사용했으면
+          toast('오늘의 스와이프를 모두 사용했습니다! 내일 다시 만나요 🌟');
+        }
+      }
+      
+      setDragDirection(null);
+    }, 300);
   };
 
   // 추가 캠페인 로드
-  const loadMoreCampaigns = async () => {
-    const excludeIds = campaigns.map(c => c.id);
-    
-    const { data: moreCampaigns } = await supabase
-      .from('campaigns')
-      .select('*')
-      .not('id', 'in', `(${excludeIds.join(',')})`)
-      .eq('status', 'active')
-      .limit(5);
-    
-    if (moreCampaigns && moreCampaigns.length > 0) {
-      setCampaigns([...campaigns, ...moreCampaigns] as any);
-    } else {
-      toast('새로운 캠페인이 곧 업데이트됩니다!', { icon: '📢' });
-    }
+  const loadMoreCampaigns = () => {
+    // 실제로는 API에서 추가 로드
+    toast('새로운 캠페인을 불러오는 중...');
+    setCurrentIndex(0);
   };
 
-  // 드래그 핸들러
-  const handleDragEnd = (event: any, info: PanInfo) => {
-    const swipeThreshold = 100;
+  // 남은 시간 계산
+  const getTimeUntilReset = () => {
+    if (!nextResetTime) return '계산 중...';
     
-    if (info.offset.x > swipeThreshold) {
-      handleSwipe('right');
-    } else if (info.offset.x < -swipeThreshold) {
-      handleSwipe('left');
-    } else if (info.offset.y < -swipeThreshold) {
-      setShowDetails(true);
-    }
-  };
-
-  // 시간 포맷
-  const formatTimeRemaining = (date: Date) => {
     const now = new Date();
-    const diff = date.getTime() - now.getTime();
+    const diff = nextResetTime.getTime() - now.getTime();
+    
+    if (diff <= 0) {
+      // 리셋 시간 도래
+      initializePage();
+      return '리셋 중...';
+    }
+    
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
     
-    if (hours > 0) {
-      return `${hours}시간 ${minutes}분`;
-    }
-    return `${minutes}분`;
+    return `${hours}시간 ${minutes}분`;
   };
 
-  const currentCampaign = campaigns[currentIndex];
-
-  if (!currentCampaign) {
+  if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <RefreshCw className="w-16 h-16 text-purple-400 mx-auto mb-4 animate-spin" />
-          <h2 className="text-xl font-bold text-gray-800 mb-2">캠페인 준비중</h2>
-          <p className="text-gray-600">
-            다음 업데이트: {formatTimeRemaining(session.nextRefreshTime)}
-          </p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">캠페인을 불러오는 중...</p>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50">
-      {/* 헤더 */}
-      <div className="flex items-center justify-between px-4 py-4 bg-white/80 backdrop-blur-sm border-b">
-        <button onClick={() => router.back()} className="p-2 hover:bg-gray-100 rounded-lg">
-          <ChevronLeft className="w-6 h-6" />
-        </button>
-        
-        <div className="flex items-center gap-3">
-          {/* 남은 스와이프 표시 */}
-          <div className="relative">
-            <div className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full shadow-sm">
-              <div className="flex items-center gap-2">
-                <Flame className="w-4 h-4 text-white" />
-                <span className="text-sm font-bold text-white">
-                  {session.remainingSwipes}/10
-                </span>
-              </div>
-            </div>
-            {session.remainingSwipes <= 3 && (
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse" />
-            )}
-          </div>
-          
-          {/* 리프레시 타이머 */}
-          <div className="px-3 py-2 bg-white rounded-full shadow-sm border">
-            <div className="flex items-center gap-2">
-              <Timer className="w-4 h-4 text-gray-500" />
-              <span className="text-xs font-medium text-gray-600">
-                {formatTimeRemaining(session.nextRefreshTime)}
-              </span>
-            </div>
-          </div>
-          
-          {/* AI 분석 버튼 */}
+  if (campaigns.length === 0 || currentIndex >= campaigns.length) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="text-center max-w-md">
+          <Coffee className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold mb-2">오늘은 여기까지!</h2>
+          <p className="text-gray-600 mb-4">
+            모든 캠페인을 확인했습니다. 
+            내일 다시 새로운 캠페인이 준비됩니다.
+          </p>
+          <p className="text-sm text-purple-600 font-semibold">
+            다음 업데이트: {getTimeUntilReset()}
+          </p>
           <button
-            onClick={() => setShowAIAnalysis(!showAIAnalysis)}
-            className="p-2 bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow"
+            onClick={() => router.push('/applications')}
+            className="mt-6 px-6 py-3 bg-purple-600 text-white rounded-lg"
           >
-            <Brain className="w-5 h-5 text-purple-600" />
+            지원 현황 보기
           </button>
         </div>
       </div>
+    );
+  }
 
-      {/* AI 분석 패널 */}
-      {showAIAnalysis && (
-        <div className="absolute top-16 right-4 z-50 w-80 bg-white rounded-2xl shadow-xl border p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Bot className="w-5 h-5 text-purple-600" />
-              <h3 className="font-bold">AI 단가 분석</h3>
+  const currentCampaign = campaigns[currentIndex];
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 pb-20">
+      {/* 헤더 */}
+      <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-lg border-b">
+        <div className="max-w-lg mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-xl font-bold">캠페인 탐색</h1>
+            <div className="flex items-center gap-3">
+              {/* 스와이프 카운터 */}
+              <div className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-sm font-medium">
+                오늘 {swipesLeft}/10
+              </div>
+              {/* 캠페인 카운터 */}
+              <div className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm font-medium">
+                {currentIndex + 1}/{campaigns.length}
+              </div>
+              {/* 리셋 타이머 */}
+              <div className="flex items-center gap-1 text-sm text-gray-600">
+                <Clock className="w-4 h-4" />
+                {getTimeUntilReset()}
+              </div>
             </div>
-            <button
-              onClick={() => setShowAIAnalysis(false)}
-              className="p-1 hover:bg-gray-100 rounded"
-            >
-              <X className="w-4 h-4" />
-            </button>
           </div>
-          
-          {pricePrediction && (
-            <div className="space-y-3">
-              <div className="p-3 bg-purple-50 rounded-lg">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm text-gray-600">AI 추천 단가</span>
-                  <span className="text-xl font-bold text-purple-600">
-                    ₩{pricePrediction.estimatedPrice.toLocaleString()}
-                  </span>
-                </div>
-                <div className="flex justify-between text-xs text-gray-500">
-                  <span>최소: ₩{pricePrediction.minPrice.toLocaleString()}</span>
-                  <span>최대: ₩{pricePrediction.maxPrice.toLocaleString()}</span>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <div className="flex-1 bg-gray-200 rounded-full h-2">
-                  <div 
-                    className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full"
-                    style={{ width: `${pricePrediction.confidence}%` }}
-                  />
-                </div>
-                <span className="text-xs font-medium">{pricePrediction.confidence}%</span>
-              </div>
-              
-              <p className="text-xs text-gray-600">{pricePrediction.recommendation}</p>
-            </div>
-          )}
         </div>
-      )}
+      </div>
 
       {/* 메인 카드 영역 */}
-      <div className="px-4 pb-32 pt-8">
-        <div className="max-w-md mx-auto">
-          <AnimatePresence mode="wait">
-            <motion.div
-              ref={cardRef}
-              key={currentCampaign.id}
-              style={{ x, y, rotate, opacity }}
-              drag
-              dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
-              dragElastic={0.7}
-              onDragEnd={handleDragEnd}
-              whileDrag={{ scale: 1.05 }}
-              className="relative"
-              initial={{ scale: 0.8, opacity: 0, y: 100 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.8, opacity: 0, y: -100 }}
-              transition={{ type: "spring", stiffness: 300, damping: 20 }}
-            >
-              <div className="bg-white rounded-3xl shadow-2xl overflow-hidden">
-                {/* 카테고리 매치 인디케이터 */}
-                {userPreferredCategories.includes(currentCampaign.category) && (
-                  <div className="absolute top-4 left-4 z-10 px-3 py-1 bg-green-500 text-white text-xs font-bold rounded-full flex items-center gap-1">
-                    <Target className="w-3 h-3" />
-                    선호 카테고리
-                  </div>
-                )}
-                
-                {/* VIP/프리미엄 뱃지 */}
-                {currentCampaign.isPremium && (
-                  <div className="absolute top-4 right-4 z-10 px-3 py-1 bg-gradient-to-r from-yellow-400 to-orange-400 text-white text-xs font-bold rounded-full flex items-center gap-1">
-                    <Crown className="w-3 h-3" />
-                    PREMIUM
-                  </div>
-                )}
-                
-                {/* 긴급도 표시 */}
-                {currentCampaign.urgency === 'high' && (
-                  <div className="absolute top-14 right-4 z-10 px-3 py-1 bg-red-500 text-white text-xs font-bold rounded-full flex items-center gap-1 animate-pulse">
-                    <AlertCircle className="w-3 h-3" />
-                    긴급
-                  </div>
-                )}
-                
-                {/* 캠페인 이미지 */}
-                <div className="relative h-96">
-                  <img
-                    src={currentCampaign.image || 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&h=800&fit=crop'}
-                    alt={currentCampaign.title}
-                    className="w-full h-full object-cover"
-                  />
-                  
-                  {/* 그라디언트 오버레이 */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                  
-                  {/* 캠페인 정보 오버레이 */}
-                  <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
-                    <div className="flex items-center gap-3 mb-3">
-                      <img
-                        src={currentCampaign.brandLogo || 'https://via.placeholder.com/50'}
-                        alt={currentCampaign.brand}
-                        className="w-12 h-12 rounded-full bg-white p-1"
-                      />
-                      <div>
-                        <h3 className="text-2xl font-bold">{currentCampaign.brand}</h3>
-                        <p className="text-sm opacity-90">{currentCampaign.category}</p>
-                      </div>
-                    </div>
-                    
-                    <h4 className="text-lg font-semibold mb-2">{currentCampaign.title}</h4>
-                    
-                    <div className="flex items-center gap-4 text-sm">
-                      <div className="flex items-center gap-1">
-                        <MapPin className="w-4 h-4" />
-                        {currentCampaign.location}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Calendar className="w-4 h-4" />
-                        {currentCampaign.deadline}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* 캠페인 상세 정보 */}
-                <div className="p-6">
-                  {/* AI 매치 스코어 & 예상 단가 */}
-                  <div className="flex items-center justify-between mb-4 p-3 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl">
-                    <div className="flex items-center gap-2">
-                      <div className="relative">
-                        <svg className="w-12 h-12">
-                          <circle
-                            cx="24"
-                            cy="24"
-                            r="20"
-                            stroke="#e5e5e5"
-                            strokeWidth="4"
-                            fill="none"
-                          />
-                          <circle
-                            cx="24"
-                            cy="24"
-                            r="20"
-                            stroke="url(#gradient)"
-                            strokeWidth="4"
-                            fill="none"
-                            strokeDasharray={`${currentCampaign.matchScore * 1.25} 125`}
-                            strokeLinecap="round"
-                            transform="rotate(-90 24 24)"
-                          />
-                          <defs>
-                            <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                              <stop offset="0%" stopColor="#8b5cf6" />
-                              <stop offset="100%" stopColor="#ec4899" />
-                            </linearGradient>
-                          </defs>
-                        </svg>
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <span className="text-xs font-bold">{currentCampaign.matchScore}%</span>
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">AI 매치율</p>
-                        <p className="font-bold text-purple-600">
-                          {currentCampaign.matchScore >= 90 ? '완벽한 매치!' : 
-                           currentCampaign.matchScore >= 70 ? '좋은 매치' : '확인 필요'}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="text-right">
-                      <p className="text-xs text-gray-500">AI 예상 단가</p>
-                      <p className="font-bold text-lg">
-                        ₩{(currentCampaign.aiPredictedPrice || currentCampaign.budget).toLocaleString()}
-                      </p>
-                      {currentCampaign.priceConfidence && (
-                        <p className="text-xs text-green-600">
-                          신뢰도 {currentCampaign.priceConfidence}%
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {/* 요구사항 */}
-                  <div className="space-y-2 mb-4">
-                    <h5 className="font-semibold text-sm flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-purple-600" />
-                      요구사항
-                    </h5>
-                    <div className="flex flex-wrap gap-2">
-                      {currentCampaign.requirements.map((req, idx) => (
-                        <span key={idx} className="px-3 py-1 bg-gray-100 text-xs rounded-full">
-                          {req}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  {/* 실시간 지원 현황 */}
-                  <div className="flex items-center justify-between p-3 bg-orange-50 rounded-xl">
-                    <div className="flex items-center gap-3">
-                      <div className="flex -space-x-2">
-                        {[...Array(Math.min(3, currentCampaign.applicants))].map((_, i) => (
-                          <div key={i} className="w-8 h-8 rounded-full bg-gray-300 border-2 border-white" />
-                        ))}
-                        {currentCampaign.applicants > 3 && (
-                          <div className="w-8 h-8 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center">
-                            <span className="text-xs font-bold">+{currentCampaign.applicants - 3}</span>
-                          </div>
-                        )}
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold">{currentCampaign.applicants}명 지원</p>
-                        <p className="text-xs text-gray-500">
-                          <span className="text-green-600">●</span> {currentCampaign.viewingNow}명 보는 중
-                        </p>
-                      </div>
-                    </div>
-                    
-                    {/* 경쟁률 표시 */}
-                    <div className="text-right">
-                      <p className="text-xs text-gray-500">경쟁률</p>
-                      <p className="text-lg font-bold text-orange-600">
-                        {(currentCampaign.applicants / 10).toFixed(1)}:1
-                      </p>
-                    </div>
-                  </div>
-                  
-                  {/* 스와이프 힌트 */}
-                  <div className="mt-4 flex items-center justify-center gap-4 text-xs text-gray-400">
-                    <div className="flex items-center gap-1">
-                      <X className="w-4 h-4" />
-                      패스
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <ChevronUp className="w-4 h-4" />
-                      상세보기
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Heart className="w-4 h-4" />
-                      지원
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              {/* 스와이프 인디케이터 */}
-              <motion.div
-                className="absolute inset-0 pointer-events-none"
-                style={{ opacity: useTransform(x, [-100, 0, 100], [0, 0, 1]) }}
-              >
-                <div className="absolute inset-0 bg-green-500/20 rounded-3xl flex items-center justify-center">
-                  <Heart className="w-32 h-32 text-green-500" fill="currentColor" />
-                </div>
-              </motion.div>
-              
-              <motion.div
-                className="absolute inset-0 pointer-events-none"
-                style={{ opacity: useTransform(x, [-100, 0, 100], [1, 0, 0]) }}
-              >
-                <div className="absolute inset-0 bg-red-500/20 rounded-3xl flex items-center justify-center">
-                  <X className="w-32 h-32 text-red-500" />
-                </div>
-              </motion.div>
-            </motion.div>
-          </AnimatePresence>
-        </div>
-      </div>
-
-      {/* 액션 버튼 */}
-      <div className="fixed bottom-8 left-0 right-0">
-        <div className="flex justify-center items-center gap-6 px-8">
-          {/* 패스 버튼 */}
-          <motion.button
-            whileTap={{ scale: 0.9 }}
-            onClick={() => handleSwipe('left')}
-            className="w-16 h-16 bg-white rounded-full shadow-xl flex items-center justify-center hover:scale-110 transition-transform border-2 border-gray-100"
-            disabled={session.remainingSwipes <= 0}
+      <div className="max-w-lg mx-auto px-4 pt-8">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentCampaign.id}
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ 
+              scale: 1, 
+              opacity: 1,
+              x: dragDirection === 'left' ? -500 : dragDirection === 'right' ? 500 : 0,
+              rotate: dragDirection === 'left' ? -30 : dragDirection === 'right' ? 30 : 0
+            }}
+            exit={{ scale: 0.8, opacity: 0 }}
+            transition={{ type: "spring", duration: 0.3 }}
+            className="relative"
           >
-            <X className="w-7 h-7 text-gray-500" />
-          </motion.button>
-          
-          {/* 슈퍼라이크 버튼 */}
-          <motion.button
-            whileTap={{ scale: 0.9 }}
-            onClick={() => handleSwipe('super')}
-            className="w-20 h-20 bg-gradient-to-r from-yellow-400 to-orange-400 rounded-full shadow-xl flex items-center justify-center hover:scale-110 transition-transform relative"
-            disabled={session.remainingSwipes <= 0}
-          >
-            <Star className="w-9 h-9 text-white" fill="white" />
-            {session.remainingSwipes <= 0 && (
-              <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
-                <Lock className="w-6 h-6 text-white" />
+            {/* 슈퍼 캠페인 표시 */}
+            {currentCampaign.isSuper && (
+              <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 z-10">
+                <div className="bg-gradient-to-r from-yellow-400 to-orange-400 text-white px-4 py-1 rounded-full text-xs font-bold flex items-center gap-1">
+                  <Sparkles className="w-3 h-3" />
+                  AI 추천
+                </div>
               </div>
             )}
-          </motion.button>
-          
-          {/* 지원하기 버튼 */}
-          <motion.button
-            whileTap={{ scale: 0.9 }}
-            onClick={() => handleSwipe('right')}
-            className="w-16 h-16 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full shadow-xl flex items-center justify-center hover:scale-110 transition-transform"
-            disabled={session.remainingSwipes <= 0}
-          >
-            <Heart className="w-7 h-7 text-white" fill="white" />
-          </motion.button>
-        </div>
-      </div>
 
-      {/* 상세 모달 */}
-      <AnimatePresence>
-        {showDetails && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50 flex items-end"
-            onClick={() => setShowDetails(false)}
-          >
-            <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              className="w-full bg-white rounded-t-3xl p-6 max-h-[80vh] overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-4" />
-              
-              <h3 className="text-xl font-bold mb-4">{currentCampaign.title}</h3>
-              
-              <div className="space-y-4">
-                <div>
-                  <h4 className="font-semibold mb-2">📝 상세 설명</h4>
-                  <p className="text-gray-600">{currentCampaign.description}</p>
+            {/* 캠페인 카드 */}
+            <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+              {/* 이미지 영역 */}
+              <div className="relative h-64 bg-gray-200">
+                <img 
+                  src={currentCampaign.image}
+                  alt={currentCampaign.title}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                
+                {/* 브랜드 정보 */}
+                <div className="absolute top-4 left-4 bg-white/90 backdrop-blur rounded-lg px-3 py-2 flex items-center gap-2">
+                  <span className="text-2xl">{currentCampaign.brandLogo}</span>
+                  <span className="font-semibold text-sm">{currentCampaign.brandName}</span>
+                  {currentCampaign.matchScore >= 90 && (
+                    <Shield className="w-4 h-4 text-blue-500" />
+                  )}
                 </div>
-                
-                <div>
-                  <h4 className="font-semibold mb-2">📊 AI 분석 결과</h4>
-                  <div className="bg-purple-50 rounded-lg p-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-xs text-gray-500">예상 도달</p>
-                        <p className="font-bold">150K+</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">예상 참여</p>
-                        <p className="font-bold">5.2K+</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">ROI 예측</p>
-                        <p className="font-bold text-green-600">+240%</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">성공 확률</p>
-                        <p className="font-bold">{currentCampaign.matchScore}%</p>
-                      </div>
-                    </div>
-                  </div>
+
+                {/* 매칭 점수 */}
+                <div className="absolute top-4 right-4 bg-purple-600 text-white rounded-lg px-3 py-2">
+                  <div className="text-xs">매칭률</div>
+                  <div className="text-lg font-bold">{currentCampaign.matchScore}%</div>
                 </div>
-                
-                {currentCampaign.deliverables && (
-                  <div>
-                    <h4 className="font-semibold mb-2">📦 제작물</h4>
-                    <div className="space-y-2">
-                      {currentCampaign.deliverables.map((item, idx) => (
-                        <div key={idx} className="flex items-center gap-2">
-                          <CheckCircle className="w-4 h-4 text-green-500" />
-                          <span className="text-sm">{item}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
-                <button
-                  onClick={() => {
-                    setShowDetails(false);
-                    handleSwipe('right');
-                  }}
-                  className="w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-bold"
-                >
-                  지원하기
-                </button>
+
+                {/* 예산 */}
+                <div className="absolute bottom-4 left-4 text-white">
+                  <div className="text-sm opacity-90">예산</div>
+                  <div className="text-2xl font-bold">₩{currentCampaign.budget.toLocaleString()}</div>
+                </div>
               </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
-      {/* 스와이프 제한 모달 */}
-      {session.remainingSwipes === 0 && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="bg-white rounded-2xl p-6 max-w-sm w-full text-center"
-          >
-            <Timer className="w-16 h-16 text-purple-600 mx-auto mb-4" />
-            <h3 className="text-xl font-bold mb-2">오늘의 스와이프 완료!</h3>
-            <p className="text-gray-600 mb-4">
-              10개의 캠페인을 모두 확인했습니다.
-              <br />
-              <span className="font-bold text-purple-600">
-                {formatTimeRemaining(session.nextRefreshTime)}
-              </span> 후에 새로운 캠페인을 확인하세요!
-            </p>
-            <div className="space-y-2">
-              <button
-                onClick={() => router.push('/profile')}
-                className="w-full py-2 bg-purple-600 text-white rounded-lg"
-              >
-                프로필 개선하기
-              </button>
-              <button
-                onClick={() => router.push('/applications')}
-                className="w-full py-2 bg-gray-100 text-gray-700 rounded-lg"
-              >
-                지원 현황 보기
-              </button>
+              {/* 콘텐츠 영역 */}
+              <div className="p-6">
+                <h2 className="text-xl font-bold mb-2">{currentCampaign.title}</h2>
+                <p className="text-gray-600 text-sm mb-4">{currentCampaign.description}</p>
+
+                {/* 태그 */}
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {currentCampaign.tags.map((tag, idx) => (
+                    <span 
+                      key={idx}
+                      className="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs"
+                    >
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
+
+                {/* 요구사항 */}
+                <div className="bg-purple-50 rounded-lg p-4 mb-4">
+                  <h3 className="font-semibold text-sm mb-2">요구사항</h3>
+                  <ul className="space-y-1">
+                    {currentCampaign.requirements.map((req, idx) => (
+                      <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
+                        <CheckCircle className="w-4 h-4 text-green-500 mt-0.5" />
+                        <span>{req}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* 추가 정보 */}
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div className="bg-gray-50 rounded-lg p-3">
+                    <Calendar className="w-5 h-5 text-gray-500 mx-auto mb-1" />
+                    <div className="text-xs text-gray-500">마감일</div>
+                    <div className="text-sm font-semibold">{currentCampaign.deadline}</div>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-3">
+                    <Users className="w-5 h-5 text-gray-500 mx-auto mb-1" />
+                    <div className="text-xs text-gray-500">예상 도달</div>
+                    <div className="text-sm font-semibold">{currentCampaign.estimatedReach.toLocaleString()}</div>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-3">
+                    <TrendingUp className="w-5 h-5 text-gray-500 mx-auto mb-1" />
+                    <div className="text-xs text-gray-500">카테고리</div>
+                    <div className="text-sm font-semibold">{currentCampaign.category}</div>
+                  </div>
+                </div>
+              </div>
             </div>
           </motion.div>
+        </AnimatePresence>
+
+        {/* 액션 버튼 */}
+        <div className="flex justify-center gap-6 mt-8">
+          <button
+            onClick={() => handleSwipe('left')}
+            disabled={swipesLeft === 0}
+            className="w-16 h-16 bg-white rounded-full shadow-lg flex items-center justify-center hover:scale-110 transition-transform disabled:opacity-50"
+          >
+            <X className="w-8 h-8 text-red-500" />
+          </button>
+
+          <button
+            onClick={() => setShowDetails(true)}
+            className="w-16 h-16 bg-white rounded-full shadow-lg flex items-center justify-center hover:scale-110 transition-transform"
+          >
+            <Info className="w-8 h-8 text-blue-500" />
+          </button>
+
+          <button
+            onClick={() => handleSwipe('right')}
+            disabled={swipesLeft === 0}
+            className="w-16 h-16 bg-white rounded-full shadow-lg flex items-center justify-center hover:scale-110 transition-transform disabled:opacity-50"
+          >
+            <Heart className="w-8 h-8 text-green-500" />
+          </button>
         </div>
-      )}
+
+        {/* 스와이프 제한 안내 */}
+        {swipesLeft === 0 && (
+          <div className="mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-yellow-800">
+                  오늘의 스와이프를 모두 사용했습니다
+                </p>
+                <p className="text-xs text-yellow-700 mt-1">
+                  {getTimeUntilReset()} 후에 다시 10개의 캠페인을 확인할 수 있습니다.
+                  프리미엄 구독으로 무제한 스와이프를 즐기세요!
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 팁 */}
+        <div className="mt-6 text-center text-xs text-gray-500">
+          💡 왼쪽: 패스 | 오른쪽: 지원하기
+        </div>
+      </div>
     </div>
   );
 }
