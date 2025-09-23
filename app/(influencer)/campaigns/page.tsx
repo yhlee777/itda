@@ -12,7 +12,10 @@ import {
 import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { saveSwipeAction } from '@/lib/campaign/actions'; // 추가된 import
+import { saveSwipeAction } from '@/lib/campaign/actions';
+// 매칭 시스템 Hook 추가
+import { useInfluencerMatching } from '@/hooks/useAIMatching';
+import { CampaignQueueManager, SwipeActionHandler } from '@/lib/matching/realtime-matching-algorithm';
 
 interface Campaign {
   id: string;
@@ -45,9 +48,19 @@ export default function CampaignsPage() {
   const router = useRouter();
   const supabase = createClient();
 
+  // 매칭 시스템 Hook 사용 (userId가 있을 때만)
+  const matchingSystem = userId ? useInfluencerMatching(userId) : null;
+
   useEffect(() => {
     initializePage();
   }, []);
+
+  // 매칭 시스템의 캠페인이 로드되면 업데이트
+  useEffect(() => {
+    if (matchingSystem?.currentCampaign && userId) {
+      updateCampaignWithMatchScore();
+    }
+  }, [matchingSystem?.currentCampaign, matchingSystem?.matchScore]);
 
   const initializePage = async () => {
     try {
@@ -60,18 +73,23 @@ export default function CampaignsPage() {
       
       setUserId(user.id);
 
-      // 스와이프 카운트 확인
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      const { data: todaySwipes } = await supabase
-        .from('swipe_history')
-        .select('id')
-        .eq('influencer_id', user.id)
-        .gte('swiped_at', today.toISOString());
+      // 매칭 시스템의 일일 스와이프 카운트 사용
+      if (matchingSystem) {
+        setSwipesLeft(matchingSystem.dailySwipes.total - matchingSystem.dailySwipes.used);
+      } else {
+        // 기존 로직 유지 (fallback)
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const { data: todaySwipes } = await supabase
+          .from('swipe_history')
+          .select('id')
+          .eq('influencer_id', user.id)
+          .gte('swiped_at', today.toISOString());
 
-      const swipesUsed = todaySwipes?.length || 0;
-      setSwipesLeft(10 - swipesUsed);
+        const swipesUsed = todaySwipes?.length || 0;
+        setSwipesLeft(10 - swipesUsed);
+      }
 
       // 다음 리셋 시간 계산 (3시간마다)
       const nextReset = new Date();
@@ -81,7 +99,7 @@ export default function CampaignsPage() {
       setNextResetTime(nextReset);
 
       // 캠페인 로드
-      loadCampaigns();
+      await loadCampaigns();
     } catch (error) {
       console.error('초기화 오류:', error);
     } finally {
@@ -89,8 +107,129 @@ export default function CampaignsPage() {
     }
   };
 
+  const updateCampaignWithMatchScore = async () => {
+    if (!matchingSystem?.currentCampaign || !userId) return;
+
+    // Supabase 캠페인을 Campaign 인터페이스로 변환
+    const supabaseCampaign = matchingSystem.currentCampaign;
+    
+    // 광고주 정보 가져오기
+    const { data: advertiser } = await supabase
+      .from('advertisers')
+      .select('company_name, company_logo')
+      .eq('id', supabaseCampaign.advertiser_id)
+      .single();
+
+    const updatedCampaign: Campaign = {
+      id: supabaseCampaign.id,
+      brandName: advertiser?.company_name || '브랜드',
+      brandLogo: advertiser?.company_logo || '🏢',
+      title: supabaseCampaign.name,
+      description: supabaseCampaign.description || '',
+      budget: supabaseCampaign.budget,
+      category: supabaseCampaign.categories?.[0] || '기타',
+      requirements: supabaseCampaign.requirements || [],
+      deadline: supabaseCampaign.end_date,
+      image: (supabaseCampaign.metadata as any)?.image || 'https://images.unsplash.com/photo-1556906781-9a412961c28c',
+      tags: supabaseCampaign.categories || [],
+      matchScore: matchingSystem.matchScore || 0,
+      estimatedReach: 50000,
+      isSuper: matchingSystem.matchScore >= 90,
+      platform: ['instagram']
+    };
+
+    // 기존 캠페인 배열에 추가 또는 업데이트
+    setCampaigns(prev => {
+      const existing = prev.find(c => c.id === updatedCampaign.id);
+      if (existing) {
+        return prev.map(c => c.id === updatedCampaign.id ? updatedCampaign : c);
+      } else {
+        return [...prev, updatedCampaign];
+      }
+    });
+  };
+
   const loadCampaigns = async () => {
-    // 더미 데이터 (실제로는 Supabase에서 가져와야 함)
+    if (!userId) return;
+
+    try {
+      // 매칭 시스템에서 캠페인 큐 생성
+      const { data: influencer } = await supabase
+        .from('influencers')
+        .select('categories')
+        .eq('id', userId)
+        .single();
+
+      if (influencer) {
+        await CampaignQueueManager.generateQueue(userId, influencer.categories || []);
+      }
+
+      // 큐에서 캠페인 가져오기
+      const { data: queueItems } = await supabase
+        .from('campaign_queue')
+        .select(`
+          *,
+          campaigns (
+            *,
+            advertisers (
+              company_name,
+              company_logo
+            )
+          )
+        `)
+        .eq('influencer_id', userId)
+        .order('queue_order', { ascending: true })
+        .limit(10);
+
+      if (queueItems && queueItems.length > 0) {
+        const mappedCampaigns = await Promise.all(
+          queueItems.map(async (item) => {
+            const campaign = item.campaigns;
+            if (!campaign) return null;
+
+            // 현재 캠페인의 매칭 점수는 hook에서 제공
+            const matchScore = item.category_priority ? item.category_priority * 30 : 75;
+
+            const formattedCampaign: Campaign = {
+              id: campaign.id,
+              brandName: campaign.advertisers?.company_name || '브랜드',
+              brandLogo: campaign.advertisers?.company_logo || '🏢',
+              title: campaign.name,
+              description: campaign.description || '',
+              budget: campaign.budget,
+              category: campaign.categories?.[0] || '기타',
+              requirements: campaign.requirements || [],
+              deadline: campaign.end_date,
+              image: (campaign.metadata as any)?.image || 'https://images.unsplash.com/photo-1556906781-9a412961c28c',
+              tags: campaign.categories || [],
+              matchScore: matchScore,
+              estimatedReach: 50000,
+              isSuper: matchScore >= 90 || campaign.is_premium,
+              platform: ['instagram']
+            };
+            
+            return formattedCampaign;
+          })
+        );
+
+        // null 값 필터링하고 타입 안전하게 처리
+        const validCampaigns: Campaign[] = mappedCampaigns.filter(
+          (campaign): campaign is Campaign => campaign !== null
+        );
+        
+        setCampaigns(validCampaigns);
+      } else {
+        // 큐가 비어있으면 기존 더미 데이터 사용
+        loadDummyCampaigns();
+      }
+    } catch (error) {
+      console.error('캠페인 로드 오류:', error);
+      // 오류 시 더미 데이터 사용
+      loadDummyCampaigns();
+    }
+  };
+
+  const loadDummyCampaigns = () => {
     const mockCampaigns: Campaign[] = [
       {
         id: '1',
@@ -125,14 +264,13 @@ export default function CampaignsPage() {
         estimatedReach: 30000,
         platform: ['instagram']
       },
-      // ... 더 많은 캠페인
     ];
 
     setCampaigns(mockCampaigns);
   };
 
-  // 스와이프 핸들러 - 수정된 부분
-  const handleSwipe = async (direction: 'left' | 'right') => {
+  // 스와이프 핸들러 - 매칭 시스템과 통합
+  const handleSwipe = async (direction: 'left' | 'right', isSuperLike?: boolean) => {
     if (swipesLeft <= 0) {
       toast.error('오늘의 스와이프를 모두 사용했습니다!');
       return;
@@ -140,56 +278,79 @@ export default function CampaignsPage() {
 
     if (!userId) return;
 
-    setDragDirection(direction);
+    const campaign = campaigns[currentIndex];
+    if (!campaign) return;
+
+    setDragDirection(direction === 'left' ? 'left' : 'right');
     
     // 애니메이션 후 처리
     setTimeout(async () => {
-      if (direction === 'right') {
-        // 지원하기
-        toast.success('캠페인에 지원했습니다! 🎉');
-        
-        // DB에 저장 - 새로 추가된 부분
-        await saveSwipeAction(
-          campaigns[currentIndex].id,
-          userId,
-          'like'
-        );
-        
-      } else {
-        // 패스
-        toast('다음 기회에! 👋', { icon: '💨' });
-        
-        // DB에 저장 - 새로 추가된 부분
-        await saveSwipeAction(
-          campaigns[currentIndex].id,
-          userId,
-          'pass'
-        );
-      }
-
-      // 스와이프 카운트 업데이트
-      const newSwipesLeft = swipesLeft - 1;
-      setSwipesLeft(newSwipesLeft);
-
-      // 다음 캠페인으로
-      if (currentIndex < campaigns.length - 1) {
-        setCurrentIndex(currentIndex + 1);
-      } else {
-        // 캠페인이 끝났을 때
-        if (swipesLeft - 1 > 0) {
-          toast('추가 캠페인을 확인하려면 새로고침 버튼을 눌러주세요! 🔄');
+      try {
+        if (direction === 'right') {
+          if (isSuperLike && matchingSystem) {
+            // Super Like - 매칭 시스템 사용
+            await matchingSystem.handleSuperLike();
+            toast.success('⭐ 슈퍼 라이크! 캠페인에 우선 지원했습니다!');
+          } else if (matchingSystem) {
+            // 일반 Like - 매칭 시스템 사용
+            await matchingSystem.handleLike();
+            toast.success('캠페인에 지원했습니다! 🎉');
+          } else {
+            // Fallback - 기존 로직
+            await saveSwipeAction(campaign.id, userId, 'like');
+            toast.success('캠페인에 지원했습니다! 🎉');
+          }
         } else {
-          toast('오늘의 스와이프를 모두 사용했습니다! 내일 다시 만나요 🌟');
+          if (matchingSystem) {
+            // Pass - 매칭 시스템 사용
+            await matchingSystem.handlePass();
+            toast('다음 기회에! 👋', { icon: '💨' });
+          } else {
+            // Fallback - 기존 로직
+            await saveSwipeAction(campaign.id, userId, 'pass');
+            toast('다음 기회에! 👋', { icon: '💨' });
+          }
         }
+
+        // 스와이프 카운트 업데이트
+        if (matchingSystem) {
+          setSwipesLeft(matchingSystem.dailySwipes.total - matchingSystem.dailySwipes.used - 1);
+        } else {
+          setSwipesLeft(swipesLeft - 1);
+        }
+
+        // 다음 캠페인으로
+        if (currentIndex < campaigns.length - 1) {
+          setCurrentIndex(currentIndex + 1);
+        } else {
+          // 캠페인이 끝났을 때
+          if (matchingSystem) {
+            // 큐 새로고침
+            await matchingSystem.refreshQueue();
+            await loadCampaigns();
+            setCurrentIndex(0);
+          } else if (swipesLeft - 1 > 0) {
+            toast('추가 캠페인을 확인하려면 새로고침 버튼을 눌러주세요! 🔄');
+          } else {
+            toast('오늘의 스와이프를 모두 사용했습니다! 내일 다시 만나요 🌟');
+          }
+        }
+        
+        setDragDirection(null);
+      } catch (error) {
+        console.error('스와이프 오류:', error);
+        toast.error('처리 중 오류가 발생했습니다.');
       }
-      
-      setDragDirection(null);
     }, 300);
   };
 
   // 추가 캠페인 로드
-  const loadMoreCampaigns = () => {
+  const loadMoreCampaigns = async () => {
     toast('새로운 캠페인을 불러오는 중...');
+    if (matchingSystem) {
+      await matchingSystem.refreshQueue();
+    }
+    await loadCampaigns();
     setCurrentIndex(0);
   };
 
@@ -250,7 +411,7 @@ export default function CampaignsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 pb-20">
-      {/* 헤더 */}
+      {/* 헤더 - UI 그대로 유지, 매칭 시스템 데이터만 사용 */}
       <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-lg border-b">
         <div className="max-w-lg mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
@@ -271,7 +432,7 @@ export default function CampaignsPage() {
         </div>
       </div>
 
-      {/* 메인 카드 영역 */}
+      {/* 메인 카드 영역 - UI 완전히 동일 */}
       <div className="max-w-lg mx-auto px-4 pt-8">
         <AnimatePresence mode="wait">
           <motion.div
@@ -287,8 +448,8 @@ export default function CampaignsPage() {
             transition={{ type: "spring", duration: 0.3 }}
             className="relative"
           >
-            {/* 슈퍼 캠페인 표시 */}
-            {currentCampaign.isSuper && (
+            {/* 슈퍼 캠페인 표시 - AI 매칭 점수 기반 */}
+            {(currentCampaign.isSuper || currentCampaign.matchScore >= 90) && (
               <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 z-10">
                 <div className="bg-gradient-to-r from-yellow-400 to-orange-400 text-white px-4 py-1 rounded-full text-xs font-bold flex items-center gap-1">
                   <Sparkles className="w-3 h-3" />
@@ -297,7 +458,7 @@ export default function CampaignsPage() {
               </div>
             )}
 
-            {/* 캠페인 카드 */}
+            {/* 캠페인 카드 - 완전히 동일한 UI */}
             <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
               {/* 이미지 영역 */}
               <div className="relative h-64 bg-gray-200">
@@ -317,10 +478,12 @@ export default function CampaignsPage() {
                   )}
                 </div>
 
-                {/* 매칭 점수 */}
+                {/* 매칭 점수 - 실제 AI 점수 표시 */}
                 <div className="absolute top-4 right-4 bg-purple-600 text-white rounded-lg px-3 py-2">
                   <div className="text-xs">매칭률</div>
-                  <div className="text-lg font-bold">{currentCampaign.matchScore}%</div>
+                  <div className="text-lg font-bold">
+                    {matchingSystem?.matchScore || currentCampaign.matchScore}%
+                  </div>
                 </div>
 
                 {/* 예산 */}
@@ -386,7 +549,7 @@ export default function CampaignsPage() {
         </AnimatePresence>
       </div>
 
-      {/* 액션 버튼 */}
+      {/* 액션 버튼 - 매칭 시스템과 연동, UI는 동일 */}
       <div className="fixed bottom-20 left-0 right-0 px-4">
         <div className="max-w-lg mx-auto flex justify-center gap-6 mt-8">
           <button
@@ -404,6 +567,17 @@ export default function CampaignsPage() {
             <Info className="w-8 h-8 text-blue-500" />
           </button>
 
+          {/* Super Like 버튼 추가 (매칭 점수 85 이상일 때만) */}
+          {(matchingSystem?.matchScore || currentCampaign.matchScore) >= 85 && (
+            <button
+              onClick={() => handleSwipe('right', true)}
+              disabled={swipesLeft === 0}
+              className="w-16 h-16 bg-gradient-to-r from-yellow-400 to-orange-400 rounded-full shadow-lg flex items-center justify-center hover:scale-110 transition-transform disabled:opacity-50"
+            >
+              <Star className="w-8 h-8 text-white" />
+            </button>
+          )}
+
           <button
             onClick={() => handleSwipe('right')}
             disabled={swipesLeft === 0}
@@ -413,7 +587,7 @@ export default function CampaignsPage() {
           </button>
         </div>
 
-        {/* 스와이프 제한 안내 */}
+        {/* 스와이프 제한 안내 - UI 동일 */}
         {swipesLeft === 0 && (
           <div className="mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
             <div className="flex items-start gap-3">
@@ -431,9 +605,12 @@ export default function CampaignsPage() {
           </div>
         )}
 
-        {/* 팁 */}
+        {/* 팁 - 매칭 점수가 높을 때 Super Like 안내 추가 */}
         <div className="mt-6 text-center text-xs text-gray-500">
           💡 왼쪽: 패스 | 오른쪽: 지원하기
+          {(matchingSystem?.matchScore || currentCampaign.matchScore) >= 85 && (
+            <span className="block mt-1">⭐ 별: 슈퍼 지원 (우선 검토)</span>
+          )}
         </div>
       </div>
     </div>

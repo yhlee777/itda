@@ -1,21 +1,98 @@
+
 {
-  "name": "ITDA",
+  "name": "ITDA - 인플루언서 매칭 플랫폼",
   "short_name": "ITDA",
-  "description": "인플루언서 & 브랜드 매칭 플랫폼",
+  "description": "인플루언서와 브랜드를 연결하는 스마트 매칭 플랫폼",
   "start_url": "/",
   "display": "standalone",
-  "theme_color": "#7c3aed",
   "background_color": "#ffffff",
+  "theme_color": "#10b981",
+  "orientation": "portrait",
+  "categories": ["business", "social"],
+  "lang": "ko-KR",
+  "dir": "ltr",
+  
   "icons": [
     {
-      "src": "/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png"
+      "src": "/icons/icon-72x72.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "any"
     },
     {
-      "src": "/icon-512.png",
+      "src": "/icons/icon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-128x128.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-144x144.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-152x152.png",
+      "sizes": "152x152",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-384x384.png",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
-  ]
+  ],
+  
+  "screenshots": [
+    {
+      "src": "/screenshots/home.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "label": "홈 화면"
+    },
+    {
+      "src": "/screenshots/swipe.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "label": "캠페인 스와이프"
+    }
+  ],
+  
+  "shortcuts": [
+    {
+      "name": "캠페인 탐색",
+      "short_name": "탐색",
+      "url": "/influencer/swipe",
+      "icons": [{ "src": "/icons/shortcut-swipe.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "대시보드",
+      "short_name": "대시보드",
+      "url": "/dashboard",
+      "icons": [{ "src": "/icons/shortcut-dashboard.png", "sizes": "96x96" }]
+    }
+  ],
+  
+  "prefer_related_applications": false,
+  "related_applications": []
 }
