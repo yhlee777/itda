@@ -11,10 +11,12 @@ import {
 import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { saveSwipeAction } from '@/lib/campaign/actions';
+import { TypedSupabase } from '@/lib/supabase/typed-client';
 import { useInfluencerMatching } from '@/hooks/useAIMatching';
-import { CampaignQueueManager, SwipeActionHandler } from '@/lib/matching/realtime-matching-algorithm';
+import { hasAdvertiser, safeArray, safeString } from '@/utils/type-guards';
+import type { Campaign as DBCampaign, Influencer } from '@/types/helpers';
 
+// UI용 Campaign 인터페이스 (기존 유지)
 interface Campaign {
   id: string;
   brandName: string;
@@ -41,11 +43,13 @@ export default function CampaignsPage() {
   const [swipesLeft, setSwipesLeft] = useState(100);
   const [showDetails, setShowDetails] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [userProfile, setUserProfile] = useState<Influencer | null>(null);
   const [nextResetTime, setNextResetTime] = useState<Date | null>(null);
   const [dragY, setDragY] = useState(0);
 
   const router = useRouter();
   const supabase = createClient();
+  const db = new TypedSupabase();
   const matchingSystem = useInfluencerMatching(userId);
 
   useEffect(() => {
@@ -81,31 +85,21 @@ export default function CampaignsPage() {
       
       setUserId(user.id);
 
-      if (matchingSystem) {
-        setSwipesLeft(matchingSystem.dailySwipes.total - matchingSystem.dailySwipes.used);
-      } else {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
-        const { data: todaySwipes } = await supabase
-          .from('swipe_history')
-          .select('id')
-          .eq('influencer_id', user.id)
-          .gte('swiped_at', today.toISOString());
-
-        const swipesUsed = todaySwipes?.length || 0;
-        setSwipesLeft(100 - swipesUsed);
+      // 인플루언서 프로필 가져오기
+      const influencer = await db.getInfluencer(user.id);
+      if (influencer) {
+        setUserProfile(influencer);
       }
 
-      const nextReset = new Date();
-      const hours = nextReset.getHours();
-      const nextResetHour = Math.ceil(hours / 3) * 3;
-      nextReset.setHours(nextResetHour, 0, 0, 0);
-      setNextResetTime(nextReset);
+      // 일일 스와이프 제한 체크
+      const limits = await db.checkDailySwipeLimit(user.id);
+      setSwipesLeft(limits.remaining);
+      setNextResetTime(limits.resetAt);
 
       await loadCampaigns();
     } catch (error) {
       console.error('초기화 오류:', error);
+      toast.error('초기화 중 문제가 발생했습니다');
     } finally {
       setIsLoading(false);
     }
@@ -116,24 +110,26 @@ export default function CampaignsPage() {
 
     const supabaseCampaign = matchingSystem.currentCampaign;
     
-    const { data: advertiser } = await supabase
-      .from('advertisers')
-      .select('company_name, company_logo')
-      .eq('id', supabaseCampaign.advertiser_id)
-      .single();
+    // advertiser_id null 체크
+    if (!hasAdvertiser(supabaseCampaign)) {
+      console.log('광고주 정보 없음');
+      return;
+    }
+
+    const advertiser = await db.getAdvertiser(supabaseCampaign.advertiser_id);
 
     const updatedCampaign: Campaign = {
       id: supabaseCampaign.id,
       brandName: advertiser?.company_name || '브랜드',
       brandLogo: advertiser?.company_logo || '🏢',
       title: supabaseCampaign.name,
-      description: supabaseCampaign.description || '',
+      description: safeString(supabaseCampaign.description),
       budget: supabaseCampaign.budget,
-      category: supabaseCampaign.categories?.[0] || '기타',
-      requirements: supabaseCampaign.requirements || [],
+      category: safeArray(supabaseCampaign.categories)[0] || '기타',
+      requirements: safeArray(supabaseCampaign.requirements),
       deadline: supabaseCampaign.end_date,
-      image: (supabaseCampaign.metadata as any)?.image || 'https://images.unsplash.com/photo-1556906781-9a412961c28c',
-      tags: supabaseCampaign.categories || [],
+      image: 'https://images.unsplash.com/photo-1556906781-9a412961c28c',
+      tags: safeArray(supabaseCampaign.categories),
       matchScore: matchingSystem.matchScore || 0,
       estimatedReach: 50000,
       isSuper: matchingSystem.matchScore >= 90,
@@ -154,71 +150,46 @@ export default function CampaignsPage() {
     if (!userId) return;
 
     try {
-      const { data: influencer } = await supabase
-        .from('influencers')
-        .select('categories')
-        .eq('id', userId)
-        .single();
+      // TypedSupabase의 getActiveCampaigns 사용
+      const dbCampaigns = await db.getActiveCampaigns(20);
 
-      if (influencer) {
-        await CampaignQueueManager.generateQueue(userId, influencer.categories || []);
-      }
-
-      const { data: queueItems } = await supabase
-        .from('campaign_queue')
-        .select(`
-          *,
-          campaigns (
-            *,
-            advertisers (
-              company_name,
-              company_logo
-            )
-          )
-        `)
-        .eq('influencer_id', userId)
-        .order('queue_order', { ascending: true })
-        .limit(20);
-
-      if (queueItems && queueItems.length > 0) {
+      if (dbCampaigns.length > 0) {
         const mappedCampaigns = await Promise.all(
-          queueItems.map(async (item) => {
-            const campaign = item.campaigns;
-            if (!campaign) return null;
-
-            const matchScore = item.category_priority ? item.category_priority * 30 : 75;
+          dbCampaigns.map(async (campaign) => {
+            let brandName = '브랜드';
+            let brandLogo = '🏢';
+            
+            if (hasAdvertiser(campaign)) {
+              const advertiser = await db.getAdvertiser(campaign.advertiser_id);
+              if (advertiser) {
+                brandName = advertiser.company_name;
+                brandLogo = advertiser.company_logo || '🏢';
+              }
+            }
 
             const formattedCampaign: Campaign = {
               id: campaign.id,
-              brandName: campaign.advertisers?.company_name || '브랜드',
-              brandLogo: campaign.advertisers?.company_logo || '🏢',
+              brandName,
+              brandLogo,
               title: campaign.name,
-              description: campaign.description || '',
+              description: safeString(campaign.description),
               budget: campaign.budget,
-              category: campaign.categories?.[0] || '기타',
-              requirements: campaign.requirements || [],
+              category: safeArray(campaign.categories)[0] || '기타',
+              requirements: safeArray(campaign.requirements),
               deadline: campaign.end_date,
-              image: (campaign.metadata as any)?.image || 'https://images.unsplash.com/photo-1556906781-9a412961c28c',
-              tags: campaign.categories || [],
-              matchScore: matchScore,
+              image: 'https://images.unsplash.com/photo-1556906781-9a412961c28c',
+              tags: safeArray(campaign.categories),
+              matchScore: 75,
               estimatedReach: 50000,
-              isSuper: matchScore >= 90 || campaign.is_premium,
+              isSuper: campaign.is_premium,
               platform: ['instagram']
             };
             
             return formattedCampaign;
           })
         );
-
-        const validCampaigns: Campaign[] = mappedCampaigns.filter(
-          (campaign): campaign is Campaign => campaign !== null
-        );
         
-        if (validCampaigns.length > 0) {
-          setCampaigns(validCampaigns);
-        } else {
-          loadDummyCampaigns();
-        }
+        setCampaigns(mappedCampaigns);
       } else {
         loadDummyCampaigns();
       }
@@ -278,39 +249,6 @@ export default function CampaignsPage() {
         matchScore: 78,
         estimatedReach: 40000,
         platform: ['instagram']
-      },
-      {
-        id: '4',
-        brandName: '삼성전자',
-        brandLogo: '📱',
-        title: '갤럭시 Z플립6 체험단',
-        description: '최신 폴더블폰의 혁신적인 기능을 소개해주실 테크 인플루언서 모집!',
-        budget: 5000000,
-        category: '테크/가전',
-        requirements: ['언박싱 영상 1개', '상세 리뷰 포스팅 2개', '일주일 사용 후기'],
-        deadline: '2024-08-20',
-        image: 'https://images.unsplash.com/photo-1592899677977-9c10ca588bbd',
-        tags: ['테크', '스마트폰', '갤럭시'],
-        matchScore: 95,
-        estimatedReach: 100000,
-        isSuper: true,
-        platform: ['youtube', 'instagram']
-      },
-      {
-        id: '5',
-        brandName: '올리브영',
-        brandLogo: '🛍️',
-        title: '하반기 세일 프로모션',
-        description: '올리브영 추천템을 소개해주실 뷰티 크리에이터를 찾습니다.',
-        budget: 1800000,
-        category: '뷰티/쇼핑',
-        requirements: ['제품 추천 포스팅 3개', '할인 정보 공유'],
-        deadline: '2024-07-25',
-        image: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9',
-        tags: ['뷰티', '쇼핑', '할인'],
-        matchScore: 82,
-        estimatedReach: 35000,
-        platform: ['instagram']
       }
     ];
 
@@ -318,6 +256,7 @@ export default function CampaignsPage() {
   };
 
   const handleSwipe = async (direction: 'left' | 'right', isSuperLike?: boolean) => {
+    // 기존 체크 로직 유지
     if (swipesLeft <= 0) {
       toast.error('오늘의 스와이프를 모두 사용했습니다!');
       return;
@@ -335,47 +274,60 @@ export default function CampaignsPage() {
     
     setTimeout(async () => {
       try {
-        if (direction === 'right') {
-          if (isSuperLike && matchingSystem) {
-            await matchingSystem.handleSuperLike();
-            toast.success('⭐ 슈퍼 라이크! 캠페인에 우선 지원했습니다!');
-          } else if (matchingSystem) {
-            await matchingSystem.handleLike();
-            toast.success('캠페인에 지원했습니다! 🎉');
+        const action = direction === 'right' 
+          ? (isSuperLike ? 'super_like' : 'like')
+          : 'pass';
+        
+        // 타입 안전한 스와이프 액션 저장
+        const result = await db.saveSwipeAction(
+          campaign.id,
+          userId,
+          action,
+          campaign.matchScore
+        );
+        
+        if (result.success) {
+          // 캠페인 통계 업데이트
+          await db.updateCampaignStats(campaign.id, 'view_count');
+          
+          if (action === 'like' || action === 'super_like') {
+            await db.updateCampaignStats(campaign.id, 'like_count');
+            await db.updateCampaignStats(campaign.id, 'application_count');
+            
+            if (isSuperLike) {
+              toast.success('⭐ 슈퍼 라이크! 캠페인에 우선 지원했습니다!');
+            } else {
+              toast.success('캠페인에 지원했습니다! 🎉');
+            }
+            
+            // 매치 점수 표시
+            if (campaign.matchScore > 80) {
+              toast(`🎯 매치율 ${campaign.matchScore}% - 완벽한 매치!`, { 
+                icon: '⚡',
+                duration: 2000 
+              });
+            }
           } else {
-            await saveSwipeAction(campaign.id, userId, 'like');
-            toast.success('캠페인에 지원했습니다! 🎉');
-          }
-        } else {
-          if (matchingSystem) {
-            await matchingSystem.handlePass();
-            toast('다음 기회에! 👋', { icon: '💨' });
-          } else {
-            await saveSwipeAction(campaign.id, userId, 'pass');
             toast('다음 기회에! 👋', { icon: '💨' });
           }
-        }
-
-        if (matchingSystem?.dailySwipes) {
-          setSwipesLeft(matchingSystem.dailySwipes.total - matchingSystem.dailySwipes.used - 1);
+        } else if (result.error === 'Already applied') {
+          toast.error('이미 지원한 캠페인입니다');
         } else {
-          setSwipesLeft(prev => prev - 1);
+          toast.error('처리 중 오류가 발생했습니다');
         }
-
+        
+        // 스와이프 카운트 업데이트
+        setSwipesLeft(prev => Math.max(0, prev - 1));
+        
+        // 다음 캠페인으로 이동
         if (currentIndex < campaigns.length - 1) {
           setCurrentIndex(currentIndex + 1);
         } else {
           toast('새로운 캠페인을 불러오는 중... 🔄');
-          
-          if (matchingSystem?.refreshQueue) {
-            await matchingSystem.refreshQueue();
-          }
-          
           await loadCampaigns();
           
           if (campaigns.length > 0) {
             setCurrentIndex(0);
-            toast.success('새로운 캠페인이 준비되었습니다! ✨');
           } else {
             loadDummyCampaigns();
             setCurrentIndex(0);
@@ -383,6 +335,7 @@ export default function CampaignsPage() {
         }
         
         setDragDirection(null);
+        
       } catch (error) {
         console.error('스와이프 오류:', error);
         toast.error('처리 중 오류가 발생했습니다.');
@@ -392,9 +345,6 @@ export default function CampaignsPage() {
 
   const loadMoreCampaigns = async () => {
     toast('새로운 캠페인을 불러오는 중...');
-    if (matchingSystem?.refreshQueue) {
-      await matchingSystem.refreshQueue();
-    }
     await loadCampaigns();
     setCurrentIndex(0);
   };
@@ -482,6 +432,7 @@ export default function CampaignsPage() {
     );
   }
 
+  // 이하 UI 코드는 완전히 동일하게 유지
   return (
     <div className="min-h-screen h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50 flex flex-col">
       <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b shadow-sm">

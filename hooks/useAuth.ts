@@ -1,70 +1,100 @@
 // hooks/useAuth.ts
+// 타입 import 수정 및 전체 코드
+
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'react-hot-toast';
-import { AUTH_ROUTES, AUTH_FLOW, DEFAULT_ROUTES_BY_TYPE, UserType } from '@/lib/auth/config';
-import type { User } from '@supabase/supabase-js';
+import type { User, Influencer, Advertiser } from '@/types/helpers'; // ✅ 수정된 import
 
+// 인증 라우트 설정
+const AUTH_ROUTES = {
+  LOGIN: '/login',
+  REGISTER: '/register',
+  ONBOARDING: '/onboarding',
+  PENDING_APPROVAL: '/pending-approval',
+  INFLUENCER_HOME: '/campaigns',
+  ADVERTISER_HOME: '/dashboard',
+  HOME: '/',
+};
+
+const AUTH_FLOW = {
+  AFTER_SIGNUP: {
+    influencer: '/onboarding',
+    advertiser: '/onboarding',
+  },
+  AFTER_LOGIN: {
+    influencer: '/campaigns',
+    advertiser: '/dashboard',
+    incomplete: '/onboarding',
+    pending: '/pending-approval',
+  },
+  AFTER_LOGOUT: '/login',
+};
+
+const DEFAULT_ROUTES_BY_TYPE = {
+  influencer: '/campaigns',
+  advertiser: '/dashboard',
+  admin: '/admin/dashboard',
+} as const;
+
+// 인증 상태 타입
 interface AuthState {
   user: User | null;
-  userType: UserType | null;
+  userType: 'influencer' | 'advertiser' | 'admin' | null;
+  influencerProfile?: Influencer | null;
+  advertiserProfile?: Advertiser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
 }
 
-interface UseAuthReturn extends AuthState {
-  login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, userType: UserType, additionalData?: any) => Promise<void>;
-  logout: () => Promise<void>;
-  checkAuth: () => Promise<void>;
-  redirectToHome: () => void;
-}
-
-export function useAuth(): UseAuthReturn {
+export function useAuth() {
   const router = useRouter();
   const supabase = createClient();
   
   const [authState, setAuthState] = useState<AuthState>({
     user: null,
     userType: null,
+    influencerProfile: null,
+    advertiserProfile: null,
     isLoading: true,
     isAuthenticated: false,
   });
 
-  // 초기 인증 체크
   useEffect(() => {
     checkAuth();
     
-    // Auth 상태 변경 리스너
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN') {
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session) {
         await checkAuth();
       } else if (event === 'SIGNED_OUT') {
         setAuthState({
           user: null,
           userType: null,
+          influencerProfile: null,
+          advertiserProfile: null,
           isLoading: false,
           isAuthenticated: false,
         });
+        router.push(AUTH_FLOW.AFTER_LOGOUT);
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      authListener?.subscription.unsubscribe();
+    };
   }, []);
 
-  // 인증 상태 확인
+  // 인증 확인
   const checkAuth = async () => {
     try {
       setAuthState(prev => ({ ...prev, isLoading: true }));
       
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { user: authUser } } = await supabase.auth.getUser();
       
-      if (!session) {
+      if (!authUser) {
         setAuthState({
           user: null,
           userType: null,
@@ -74,19 +104,60 @@ export function useAuth(): UseAuthReturn {
         return;
       }
 
-      // 사용자 타입 확인
-      const { data: userData } = await supabase
+      // 사용자 정보 조회
+      const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('user_type')
-        .eq('id', session.user.id)
+        .select('*')
+        .eq('id', authUser.id)
         .single();
 
+      if (userError || !userData) {
+        console.error('User data error:', userError);
+        setAuthState({
+          user: null,
+          userType: null,
+          isLoading: false,
+          isAuthenticated: false,
+        });
+        return;
+      }
+
+      // 사용자 타입별 프로필 조회
+      let influencerProfile = null;
+      let advertiserProfile = null;
+
+      if (userData.user_type === 'influencer') {
+        const { data: profile } = await supabase
+          .from('influencers')
+          .select('*')
+          .eq('id', authUser.id)
+          .single();
+        influencerProfile = profile;
+      } else if (userData.user_type === 'advertiser') {
+        const { data: profile } = await supabase
+          .from('advertisers')
+          .select('*')
+          .eq('id', authUser.id)
+          .single();
+        advertiserProfile = profile;
+      }
+
       setAuthState({
-        user: session.user,
-        userType: userData?.user_type as UserType || null,
+        user: userData as User,
+        userType: userData.user_type as 'influencer' | 'advertiser' | 'admin' | null,
+        influencerProfile,
+        advertiserProfile,
         isLoading: false,
         isAuthenticated: true,
       });
+
+      // 프로필 미완성시 온보딩으로
+      if (userData.user_type && !influencerProfile && !advertiserProfile) {
+        if (window.location.pathname !== AUTH_ROUTES.ONBOARDING) {
+          router.push(AUTH_ROUTES.ONBOARDING);
+        }
+      }
+
     } catch (error) {
       console.error('Auth check error:', error);
       setAuthState({
@@ -102,51 +173,59 @@ export function useAuth(): UseAuthReturn {
   const login = async (email: string, password: string) => {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.trim().toLowerCase(),
+        email,
         password,
       });
 
       if (error) throw error;
 
-      if (!data.user) {
-        throw new Error('로그인에 실패했습니다');
-      }
-
-      // 사용자 정보 확인
-      const { data: userData, error: userError } = await supabase
+      const { data: userData } = await supabase
         .from('users')
         .select('user_type')
         .eq('id', data.user.id)
         .single();
 
-      if (userError || !userData) {
-        // 프로필 미완성 - 온보딩으로
-        toast('프로필을 완성해주세요', { icon: '📝' });
-        router.push(AUTH_FLOW.AFTER_LOGIN.incomplete);
+      if (!userData?.user_type) {
+        toast.error('사용자 정보를 찾을 수 없습니다');
         return;
       }
 
-      const userType = userData.user_type as UserType;
+      const userType = userData.user_type as 'influencer' | 'advertiser';
 
-      // 광고주인 경우 승인 확인
-      if (userType === 'advertiser') {
-        const { data: advertiserData } = await supabase
-          .from('advertisers')
-          .select('is_verified')
+      // 사용자 타입별 프로필 확인
+      if (userType === 'influencer') {
+        const { data: profile } = await supabase
+          .from('influencers')
+          .select('id')
           .eq('id', data.user.id)
           .single();
 
-        if (!advertiserData?.is_verified) {
-          toast('관리자 승인을 기다리고 있습니다', { icon: '⏳' });
+        if (!profile) {
+          toast.success('프로필을 완성해주세요');
+          router.push(AUTH_FLOW.AFTER_LOGIN.incomplete);
+        } else {
+          toast.success('로그인 성공!');
+          router.push(AUTH_FLOW.AFTER_LOGIN.influencer);
+        }
+      } else if (userType === 'advertiser') {
+        const { data: profile } = await supabase
+          .from('advertisers')
+          .select('id, is_verified')
+          .eq('id', data.user.id)
+          .single();
+
+        if (!profile) {
+          toast.success('프로필을 완성해주세요');
+          router.push(AUTH_FLOW.AFTER_LOGIN.incomplete);
+        } else if (!profile.is_verified) {
+          toast('승인 대기 중입니다');
           router.push(AUTH_FLOW.AFTER_LOGIN.pending);
-          return;
+        } else {
+          toast.success('로그인 성공!');
+          router.push(AUTH_FLOW.AFTER_LOGIN.advertiser);
         }
       }
 
-      // 성공 - 홈으로 이동
-      toast.success(`환영합니다! ${userType === 'advertiser' ? '대시보드' : '캠페인'}로 이동합니다`);
-      router.push(DEFAULT_ROUTES_BY_TYPE[userType]);
-      
     } catch (error: any) {
       console.error('Login error:', error);
       toast.error(error.message || '로그인에 실패했습니다');
@@ -158,46 +237,30 @@ export function useAuth(): UseAuthReturn {
   const register = async (
     email: string, 
     password: string, 
-    userType: UserType,
-    additionalData?: any
+    userType: 'influencer' | 'advertiser'
   ) => {
     try {
-      // Supabase Auth 회원가입
-      const { data, error } = await supabase.auth.signUp({
-        email: email.trim().toLowerCase(),
+      // 1. Auth 회원가입
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
         password,
-        options: {
-          data: {
-            user_type: userType,
-            ...additionalData,
-          },
-        },
       });
 
-      if (error) {
-        if (error.message.includes('already registered')) {
-          throw new Error('이미 가입된 이메일입니다');
-        }
-        throw error;
-      }
+      if (authError) throw authError;
+      if (!authData.user) throw new Error('회원가입 실패');
 
-      if (!data.user) {
-        throw new Error('회원가입에 실패했습니다');
-      }
+      // 2. Users 테이블에 추가
+      const { error: userError } = await supabase
+        .from('users')
+        .insert({
+          id: authData.user.id,
+          email: email,
+          user_type: userType,
+        });
 
-      // users 테이블에 저장
-      const { error: userError } = await supabase.from('users').insert({
-        id: data.user.id,
-        email: email.toLowerCase(),
-        user_type: userType,
-      });
+      if (userError) throw userError;
 
-      if (userError && !userError.message.includes('duplicate')) {
-        console.error('User table error:', userError);
-      }
-
-      // 성공 - 온보딩으로 이동
-      toast.success('회원가입이 완료되었습니다! 프로필을 완성해주세요');
+      toast.success('회원가입 성공! 프로필을 완성해주세요');
       router.push(AUTH_FLOW.AFTER_SIGNUP[userType]);
       
     } catch (error: any) {
@@ -210,7 +273,6 @@ export function useAuth(): UseAuthReturn {
   // 로그아웃
   const logout = async () => {
     try {
-      // 확인 다이얼로그
       if (!window.confirm('정말 로그아웃 하시겠습니까?')) {
         return;
       }
@@ -218,14 +280,14 @@ export function useAuth(): UseAuthReturn {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
 
-      // 스토리지 정리
       localStorage.clear();
       sessionStorage.clear();
 
-      // 상태 초기화
       setAuthState({
         user: null,
         userType: null,
+        influencerProfile: null,
+        advertiserProfile: null,
         isLoading: false,
         isAuthenticated: false,
       });

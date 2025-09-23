@@ -2,7 +2,7 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import type { Database } from '@/types/database';
+import type { Database } from '@/types/database.types';
 
 export function createMiddlewareClient(req: NextRequest, res: NextResponse) {
   return createServerClient<Database>(

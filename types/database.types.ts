@@ -1,4 +1,6 @@
 // types/database.types.ts
+// Supabase 데이터베이스 타입 정의 (완전한 버전)
+
 export type Json =
   | string
   | number
@@ -10,6 +12,7 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
+      // users 테이블
       users: {
         Row: {
           id: string
@@ -35,8 +38,91 @@ export interface Database {
           created_at?: string
           updated_at?: string
         }
-        Relationships: []
       }
+
+      // influencers 테이블
+      influencers: {
+        Row: {
+          id: string
+          name: string
+          username: string
+          avatar: string | null
+          bio: string | null
+          categories: string[] | null
+          followers_count: number
+          following_count: number
+          posts_count: number
+          engagement_rate: number
+          audience_demographics: Json | null
+          average_likes: number
+          average_comments: number
+          tier: 'bronze' | 'silver' | 'gold' | 'platinum' | null
+          is_verified: boolean
+          instagram_handle: string | null
+          youtube_handle: string | null
+          tiktok_handle: string | null
+          preferred_categories: string[] | null
+          daily_swipes_count: number
+          daily_swipes_limit: number
+          last_swipe_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          name: string
+          username: string
+          avatar?: string | null
+          bio?: string | null
+          categories?: string[] | null
+          followers_count?: number
+          following_count?: number
+          posts_count?: number
+          engagement_rate?: number
+          audience_demographics?: Json | null
+          average_likes?: number
+          average_comments?: number
+          tier?: 'bronze' | 'silver' | 'gold' | 'platinum' | null
+          is_verified?: boolean
+          instagram_handle?: string | null
+          youtube_handle?: string | null
+          tiktok_handle?: string | null
+          preferred_categories?: string[] | null
+          daily_swipes_count?: number
+          daily_swipes_limit?: number
+          last_swipe_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          username?: string
+          avatar?: string | null
+          bio?: string | null
+          categories?: string[] | null
+          followers_count?: number
+          following_count?: number
+          posts_count?: number
+          engagement_rate?: number
+          audience_demographics?: Json | null
+          average_likes?: number
+          average_comments?: number
+          tier?: 'bronze' | 'silver' | 'gold' | 'platinum' | null
+          is_verified?: boolean
+          instagram_handle?: string | null
+          youtube_handle?: string | null
+          tiktok_handle?: string | null
+          preferred_categories?: string[] | null
+          daily_swipes_count?: number
+          daily_swipes_limit?: number
+          last_swipe_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+
+      // advertisers 테이블
       advertisers: {
         Row: {
           id: string
@@ -95,166 +181,33 @@ export interface Database {
           created_at?: string
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "advertisers_id_fkey"
-            columns: ["id"]
-            isOneToOne: true
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          }
-        ]
       }
-      influencers: {
-        Row: {
-          id: string
-          name: string
-          username: string
-          avatar: string | null
-          bio: string | null
-          categories: string[]
-          followers_count: number
-          following_count: number
-          posts_count: number
-          engagement_rate: number
-          audience_demographics: Json
-          average_likes: number
-          average_comments: number
-          average_reach: number
-          availability: Json
-          tier: 'standard' | 'gold' | 'premium'
-          is_verified: boolean
-          verification_date: string | null
-          growth_rate: number
-          content_quality_score: number
-          total_campaigns: number
-          total_earnings: number
-          average_rating: number
-          status: 'active' | 'inactive' | 'suspended' | null
-          main_platform: string | null
-          instagram_username: string | null
-          youtube_channel: string | null
-          tiktok_username: string | null
-          bank_account: Json | null
-          daily_swipes_count: number
-          daily_swipes_reset_at: string
-          preferred_categories: string[]
-          last_swipe_at: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id: string
-          name: string
-          username: string
-          avatar?: string | null
-          bio?: string | null
-          categories?: string[]
-          followers_count?: number
-          following_count?: number
-          posts_count?: number
-          engagement_rate?: number
-          audience_demographics?: Json
-          average_likes?: number
-          average_comments?: number
-          average_reach?: number
-          availability?: Json
-          tier?: 'standard' | 'gold' | 'premium'
-          is_verified?: boolean
-          verification_date?: string | null
-          growth_rate?: number
-          content_quality_score?: number
-          total_campaigns?: number
-          total_earnings?: number
-          average_rating?: number
-          status?: 'active' | 'inactive' | 'suspended' | null
-          main_platform?: string | null
-          instagram_username?: string | null
-          youtube_channel?: string | null
-          tiktok_username?: string | null
-          bank_account?: Json | null
-          daily_swipes_count?: number
-          daily_swipes_reset_at?: string
-          preferred_categories?: string[]
-          last_swipe_at?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          name?: string
-          username?: string
-          avatar?: string | null
-          bio?: string | null
-          categories?: string[]
-          followers_count?: number
-          following_count?: number
-          posts_count?: number
-          engagement_rate?: number
-          audience_demographics?: Json
-          average_likes?: number
-          average_comments?: number
-          average_reach?: number
-          availability?: Json
-          tier?: 'standard' | 'gold' | 'premium'
-          is_verified?: boolean
-          verification_date?: string | null
-          growth_rate?: number
-          content_quality_score?: number
-          total_campaigns?: number
-          total_earnings?: number
-          average_rating?: number
-          status?: 'active' | 'inactive' | 'suspended' | null
-          main_platform?: string | null
-          instagram_username?: string | null
-          youtube_channel?: string | null
-          tiktok_username?: string | null
-          bank_account?: Json | null
-          daily_swipes_count?: number
-          daily_swipes_reset_at?: string
-          preferred_categories?: string[]
-          last_swipe_at?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "influencers_id_fkey"
-            columns: ["id"]
-            isOneToOne: true
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
+
+      // campaigns 테이블 (⚠️ advertiser_id가 null 가능!)
       campaigns: {
         Row: {
           id: string
-          advertiser_id: string | null
+          advertiser_id: string | null  // ⚠️ null 가능!
           name: string
           description: string | null
-          objectives: string[]
-          categories: string[]
+          objectives: string[] | null
+          categories: string[] | null
           budget: number
           spent: number
           start_date: string
           end_date: string
-          target_audience: Json
+          target_audience: Json | null
           min_followers: number
           min_engagement_rate: number
-          deliverables: Json
-          requirements: string[]
+          deliverables: Json | null
+          requirements: string[] | null
           status: 'draft' | 'active' | 'matching' | 'in_progress' | 'completed' | 'cancelled'
-          impressions: number
-          clicks: number
-          conversions: number
-          revenue: number
-          metadata: Json
           view_count: number
           like_count: number
           application_count: number
           is_premium: boolean
-          urgency: 'high' | 'medium' | 'low'
+          urgency: 'high' | 'medium' | 'low' | null
+          metadata: Json | null
           created_at: string
           updated_at: string
         }
@@ -263,28 +216,24 @@ export interface Database {
           advertiser_id?: string | null
           name: string
           description?: string | null
-          objectives?: string[]
-          categories?: string[]
+          objectives?: string[] | null
+          categories?: string[] | null
           budget: number
           spent?: number
           start_date: string
           end_date: string
-          target_audience?: Json
+          target_audience?: Json | null
           min_followers?: number
           min_engagement_rate?: number
-          deliverables?: Json
-          requirements?: string[]
+          deliverables?: Json | null
+          requirements?: string[] | null
           status?: 'draft' | 'active' | 'matching' | 'in_progress' | 'completed' | 'cancelled'
-          impressions?: number
-          clicks?: number
-          conversions?: number
-          revenue?: number
-          metadata?: Json
           view_count?: number
           like_count?: number
           application_count?: number
           is_premium?: boolean
-          urgency?: 'high' | 'medium' | 'low'
+          urgency?: 'high' | 'medium' | 'low' | null
+          metadata?: Json | null
           created_at?: string
           updated_at?: string
         }
@@ -293,41 +242,88 @@ export interface Database {
           advertiser_id?: string | null
           name?: string
           description?: string | null
-          objectives?: string[]
-          categories?: string[]
+          objectives?: string[] | null
+          categories?: string[] | null
           budget?: number
           spent?: number
           start_date?: string
           end_date?: string
-          target_audience?: Json
+          target_audience?: Json | null
           min_followers?: number
           min_engagement_rate?: number
-          deliverables?: Json
-          requirements?: string[]
+          deliverables?: Json | null
+          requirements?: string[] | null
           status?: 'draft' | 'active' | 'matching' | 'in_progress' | 'completed' | 'cancelled'
-          impressions?: number
-          clicks?: number
-          conversions?: number
-          revenue?: number
-          metadata?: Json
           view_count?: number
           like_count?: number
           application_count?: number
           is_premium?: boolean
-          urgency?: 'high' | 'medium' | 'low'
+          urgency?: 'high' | 'medium' | 'low' | null
+          metadata?: Json | null
           created_at?: string
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "campaigns_advertiser_id_fkey"
-            columns: ["advertiser_id"]
-            isOneToOne: false
-            referencedRelation: "advertisers"
-            referencedColumns: ["id"]
-          }
-        ]
       }
+
+      // campaign_influencers 테이블
+      campaign_influencers: {
+        Row: {
+          id: string
+          campaign_id: string
+          influencer_id: string
+          match_score: number | null
+          match_details: Json | null
+          status: 'pending' | 'accepted' | 'rejected' | 'in_progress' | 'completed'
+          agreed_price: number | null
+          deliverables: Json | null
+          matched_at: string
+          accepted_at: string | null
+          started_at: string | null
+          completed_at: string | null
+          content_links: Json | null
+          performance_metrics: Json | null
+          rating: number | null
+          review: string | null
+        }
+        Insert: {
+          id?: string
+          campaign_id: string
+          influencer_id: string
+          match_score?: number | null
+          match_details?: Json | null
+          status?: 'pending' | 'accepted' | 'rejected' | 'in_progress' | 'completed'
+          agreed_price?: number | null
+          deliverables?: Json | null
+          matched_at?: string
+          accepted_at?: string | null
+          started_at?: string | null
+          completed_at?: string | null
+          content_links?: Json | null
+          performance_metrics?: Json | null
+          rating?: number | null
+          review?: string | null
+        }
+        Update: {
+          id?: string
+          campaign_id?: string
+          influencer_id?: string
+          match_score?: number | null
+          match_details?: Json | null
+          status?: 'pending' | 'accepted' | 'rejected' | 'in_progress' | 'completed'
+          agreed_price?: number | null
+          deliverables?: Json | null
+          matched_at?: string
+          accepted_at?: string | null
+          started_at?: string | null
+          completed_at?: string | null
+          content_links?: Json | null
+          performance_metrics?: Json | null
+          rating?: number | null
+          review?: string | null
+        }
+      }
+
+      // swipe_history 테이블
       swipe_history: {
         Row: {
           id: string
@@ -356,23 +352,9 @@ export interface Database {
           category_match?: boolean
           swiped_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "swipe_history_influencer_id_fkey"
-            columns: ["influencer_id"]
-            isOneToOne: false
-            referencedRelation: "influencers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "swipe_history_campaign_id_fkey"
-            columns: ["campaign_id"]
-            isOneToOne: false
-            referencedRelation: "campaigns"
-            referencedColumns: ["id"]
-          }
-        ]
       }
+
+      // campaign_queue 테이블
       campaign_queue: {
         Row: {
           id: string
@@ -401,147 +383,112 @@ export interface Database {
           added_at?: string
           expires_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "campaign_queue_influencer_id_fkey"
-            columns: ["influencer_id"]
-            isOneToOne: false
-            referencedRelation: "influencers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "campaign_queue_campaign_id_fkey"
-            columns: ["campaign_id"]
-            isOneToOne: false
-            referencedRelation: "campaigns"
-            referencedColumns: ["id"]
-          }
-        ]
       }
+
+      // notifications 테이블
       notifications: {
         Row: {
           id: string
           user_id: string
-          type: 'campaign_match' | 'application_accepted' | 'new_message' | 'payment_received' | 'new_applicant' | 'ai_insight' | 'super_like' | 'campaign_ended'
+          type: string
           title: string
           message: string
           metadata: Json | null
           is_read: boolean
           read_at: string | null
+          priority: string | null
+          action_url: string | null
+          expires_at: string | null
           created_at: string
         }
         Insert: {
           id?: string
           user_id: string
-          type: 'campaign_match' | 'application_accepted' | 'new_message' | 'payment_received' | 'new_applicant' | 'ai_insight' | 'super_like' | 'campaign_ended'
+          type: string
           title: string
           message: string
           metadata?: Json | null
           is_read?: boolean
           read_at?: string | null
+          priority?: string | null
+          action_url?: string | null
+          expires_at?: string | null
           created_at?: string
         }
         Update: {
           id?: string
           user_id?: string
-          type?: 'campaign_match' | 'application_accepted' | 'new_message' | 'payment_received' | 'new_applicant' | 'ai_insight' | 'super_like' | 'campaign_ended'
+          type?: string
           title?: string
           message?: string
           metadata?: Json | null
           is_read?: boolean
           read_at?: string | null
+          priority?: string | null
+          action_url?: string | null
+          expires_at?: string | null
           created_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "notifications_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          }
-        ]
       }
-      campaign_influencers: {
+
+      // chat_rooms 테이블
+      chat_rooms: {
         Row: {
           id: string
-          campaign_id: string | null
-          influencer_id: string | null
-          match_score: number | null
-          match_details: Json | null
-          status: 'pending' | 'accepted' | 'rejected' | 'in_progress' | 'completed'
-          agreed_price: number | null
-          deliverables: Json | null
-          matched_at: string
-          accepted_at: string | null
-          started_at: string | null
-          completed_at: string | null
-          content_links: Json
-          performance_metrics: Json
-          rating: number | null
-          review: string | null
+          campaign_id: string
+          advertiser_id: string
+          influencer_id: string
+          status: 'active' | 'archived' | 'blocked'
+          contract_status: string | null
+          last_message: string | null
+          last_message_at: string | null
+          unread_advertiser: number
+          unread_influencer: number
+          created_at: string
+          updated_at: string
         }
         Insert: {
           id?: string
-          campaign_id?: string | null
-          influencer_id?: string | null
-          match_score?: number | null
-          match_details?: Json | null
-          status?: 'pending' | 'accepted' | 'rejected' | 'in_progress' | 'completed'
-          agreed_price?: number | null
-          deliverables?: Json | null
-          matched_at?: string
-          accepted_at?: string | null
-          started_at?: string | null
-          completed_at?: string | null
-          content_links?: Json
-          performance_metrics?: Json
-          rating?: number | null
-          review?: string | null
+          campaign_id: string
+          advertiser_id: string
+          influencer_id: string
+          status?: 'active' | 'archived' | 'blocked'
+          contract_status?: string | null
+          last_message?: string | null
+          last_message_at?: string | null
+          unread_advertiser?: number
+          unread_influencer?: number
+          created_at?: string
+          updated_at?: string
         }
         Update: {
           id?: string
-          campaign_id?: string | null
-          influencer_id?: string | null
-          match_score?: number | null
-          match_details?: Json | null
-          status?: 'pending' | 'accepted' | 'rejected' | 'in_progress' | 'completed'
-          agreed_price?: number | null
-          deliverables?: Json | null
-          matched_at?: string
-          accepted_at?: string | null
-          started_at?: string | null
-          completed_at?: string | null
-          content_links?: Json
-          performance_metrics?: Json
-          rating?: number | null
-          review?: string | null
+          campaign_id?: string
+          advertiser_id?: string
+          influencer_id?: string
+          status?: 'active' | 'archived' | 'blocked'
+          contract_status?: string | null
+          last_message?: string | null
+          last_message_at?: string | null
+          unread_advertiser?: number
+          unread_influencer?: number
+          created_at?: string
+          updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "campaign_influencers_campaign_id_fkey"
-            columns: ["campaign_id"]
-            isOneToOne: false
-            referencedRelation: "campaigns"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "campaign_influencers_influencer_id_fkey"
-            columns: ["influencer_id"]
-            isOneToOne: false
-            referencedRelation: "influencers"
-            referencedColumns: ["id"]
-          }
-        ]
       }
+
+      // messages 테이블
       messages: {
         Row: {
           id: string
           chat_room_id: string
           sender_id: string
-          message: string | null
-          file_url: string | null
-          file_type: string | null
+          sender_type: 'influencer' | 'advertiser' | 'system' | null
+          content: string
+          message_type: string | null
+          attachments: Json | null
+          is_edited: boolean
+          is_deleted: boolean
           is_read: boolean
           read_at: string | null
           created_at: string
@@ -550,9 +497,12 @@ export interface Database {
           id?: string
           chat_room_id: string
           sender_id: string
-          message?: string | null
-          file_url?: string | null
-          file_type?: string | null
+          sender_type?: 'influencer' | 'advertiser' | 'system' | null
+          content: string
+          message_type?: string | null
+          attachments?: Json | null
+          is_edited?: boolean
+          is_deleted?: boolean
           is_read?: boolean
           read_at?: string | null
           created_at?: string
@@ -561,129 +511,20 @@ export interface Database {
           id?: string
           chat_room_id?: string
           sender_id?: string
-          message?: string | null
-          file_url?: string | null
-          file_type?: string | null
+          sender_type?: 'influencer' | 'advertiser' | 'system' | null
+          content?: string
+          message_type?: string | null
+          attachments?: Json | null
+          is_edited?: boolean
+          is_deleted?: boolean
           is_read?: boolean
           read_at?: string | null
           created_at?: string
         }
-        Relationships: []
-      }
-      chat_rooms: {
-        Row: {
-          id: string
-          campaign_id: string | null
-          advertiser_id: string
-          influencer_id: string
-          last_message: string | null
-          last_message_at: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          campaign_id?: string | null
-          advertiser_id: string
-          influencer_id: string
-          last_message?: string | null
-          last_message_at?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          campaign_id?: string | null
-          advertiser_id?: string
-          influencer_id?: string
-          last_message?: string | null
-          last_message_at?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      proposals: {
-        Row: {
-          id: string
-          chat_room_id: string | null
-          campaign_id: string | null
-          proposed_by: string | null
-          proposed_to: string | null
-          proposed_price: number
-          deliverables: Json
-          deadline: string
-          payment_terms: string | null
-          requirements: string[]
-          notes: string | null
-          status: 'pending' | 'accepted' | 'rejected' | 'counter' | 'expired'
-          counter_proposal_id: string | null
-          proposed_at: string
-          responded_at: string | null
-          expires_at: string | null
-          advertiser_signature: string | null
-          influencer_signature: string | null
-          signed_at: string | null
-        }
-        Insert: {
-          id?: string
-          chat_room_id?: string | null
-          campaign_id?: string | null
-          proposed_by?: string | null
-          proposed_to?: string | null
-          proposed_price: number
-          deliverables: Json
-          deadline: string
-          payment_terms?: string | null
-          requirements?: string[]
-          notes?: string | null
-          status?: 'pending' | 'accepted' | 'rejected' | 'counter' | 'expired'
-          counter_proposal_id?: string | null
-          proposed_at?: string
-          responded_at?: string | null
-          expires_at?: string | null
-          advertiser_signature?: string | null
-          influencer_signature?: string | null
-          signed_at?: string | null
-        }
-        Update: {
-          id?: string
-          chat_room_id?: string | null
-          campaign_id?: string | null
-          proposed_by?: string | null
-          proposed_to?: string | null
-          proposed_price?: number
-          deliverables?: Json
-          deadline?: string
-          payment_terms?: string | null
-          requirements?: string[]
-          notes?: string | null
-          status?: 'pending' | 'accepted' | 'rejected' | 'counter' | 'expired'
-          counter_proposal_id?: string | null
-          proposed_at?: string
-          responded_at?: string | null
-          expires_at?: string | null
-          advertiser_signature?: string | null
-          influencer_signature?: string | null
-          signed_at?: string | null
-        }
-        Relationships: []
       }
     }
     Views: {}
-    Functions: {
-      reset_daily_swipes: {
-        Args: { user_id: string }
-        Returns: void
-      }
-      generate_campaign_queue: {
-        Args: { 
-          influencer_id: string
-          limit_count?: number 
-        }
-        Returns: void
-      }
-    }
+    Functions: {}
     Enums: {}
     CompositeTypes: {}
   }
