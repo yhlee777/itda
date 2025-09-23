@@ -10,13 +10,14 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
+import { saveSwipeAction } from '@/lib/campaign/actions';
 import { createClient } from '@/lib/supabase/client';
 import { TypedSupabase } from '@/lib/supabase/typed-client';
 import { useInfluencerMatching } from '@/hooks/useAIMatching';
 import { hasAdvertiser, safeArray, safeString } from '@/utils/type-guards';
 import type { Campaign as DBCampaign, Influencer } from '@/types/helpers';
 
-// UI용 Campaign 인터페이스 (기존 유지)
+// UI용 Campaign 인터페이스
 interface Campaign {
   id: string;
   brandName: string;
@@ -50,7 +51,7 @@ export default function CampaignsPage() {
   const router = useRouter();
   const supabase = createClient();
   const db = new TypedSupabase();
-  const matchingSystem = useInfluencerMatching(userId);
+  const matchingSystem = useInfluencerMatching(userId || undefined);
 
   useEffect(() => {
     initializePage();
@@ -153,9 +154,23 @@ export default function CampaignsPage() {
       // TypedSupabase의 getActiveCampaigns 사용
       const dbCampaigns = await db.getActiveCampaigns(20);
 
-      if (dbCampaigns.length > 0) {
+      // 이미 지원한 캠페인 목록 가져오기
+      const { data: appliedCampaigns } = await supabase
+        .from('applications')
+        .select('campaign_id')
+        .eq('influencer_id', userId)
+        .in('status', ['pending', 'accepted', 'rejected']);
+      
+      const appliedCampaignIds = (appliedCampaigns as Array<{campaign_id: string}>)?.map(app => app.campaign_id) || [];
+
+      // 이미 지원한 캠페인 필터링
+      const filteredCampaigns = dbCampaigns.filter(
+        campaign => !appliedCampaignIds.includes(campaign.id)
+      );
+
+      if (filteredCampaigns.length > 0) {
         const mappedCampaigns = await Promise.all(
-          dbCampaigns.map(async (campaign) => {
+          filteredCampaigns.map(async (campaign) => {
             let brandName = '브랜드';
             let brandLogo = '🏢';
             
@@ -181,7 +196,7 @@ export default function CampaignsPage() {
               tags: safeArray(campaign.categories),
               matchScore: 75,
               estimatedReach: 50000,
-              isSuper: campaign.is_premium,
+              isSuper: campaign.is_premium || false,
               platform: ['instagram']
             };
             
@@ -191,7 +206,58 @@ export default function CampaignsPage() {
         
         setCampaigns(mappedCampaigns);
       } else {
-        loadDummyCampaigns();
+        // 필터링 후 캠페인이 없으면 더 많은 캠페인 로드 시도
+        const moreCampaigns = await db.getActiveCampaigns(50);
+        const moreFilteredCampaigns = moreCampaigns.filter(
+          campaign => !appliedCampaignIds.includes(campaign.id)
+        );
+        
+        if (moreFilteredCampaigns.length > 0) {
+          // 위와 같은 매핑 로직 적용
+          const mappedCampaigns = await Promise.all(
+            moreFilteredCampaigns.slice(0, 20).map(async (campaign) => {
+              let brandName = '브랜드';
+              let brandLogo = '🏢';
+              
+              if (hasAdvertiser(campaign)) {
+                const advertiser = await db.getAdvertiser(campaign.advertiser_id);
+                if (advertiser) {
+                  brandName = advertiser.company_name;
+                  brandLogo = advertiser.company_logo || '🏢';
+                }
+              }
+
+              const formattedCampaign: Campaign = {
+                id: campaign.id,
+                brandName,
+                brandLogo,
+                title: campaign.name,
+                description: safeString(campaign.description),
+                budget: campaign.budget,
+                category: safeArray(campaign.categories)[0] || '기타',
+                requirements: safeArray(campaign.requirements),
+                deadline: campaign.end_date,
+                image: 'https://images.unsplash.com/photo-1556906781-9a412961c28c',
+                tags: safeArray(campaign.categories),
+                matchScore: 75,
+                estimatedReach: 50000,
+                isSuper: campaign.is_premium || false,
+                platform: ['instagram']
+              };
+              
+              return formattedCampaign;
+            })
+          );
+          
+          setCampaigns(mappedCampaigns);
+        } else {
+          // 모든 캠페인에 이미 지원한 경우
+          toast('모든 캠페인에 지원하셨습니다! 🎉\n새로운 캠페인이 등록되면 알려드릴게요.', {
+            duration: 4000,
+            icon: '🎯'
+          });
+          setCampaigns([]);
+        }
       }
     } catch (error) {
       console.error('캠페인 로드 오류:', error);
@@ -256,7 +322,7 @@ export default function CampaignsPage() {
   };
 
   const handleSwipe = async (direction: 'left' | 'right', isSuperLike?: boolean) => {
-    // 기존 체크 로직 유지
+    // 스와이프 제한 체크
     if (swipesLeft <= 0) {
       toast.error('오늘의 스와이프를 모두 사용했습니다!');
       return;
@@ -264,56 +330,70 @@ export default function CampaignsPage() {
 
     if (!userId) {
       toast.error('로그인이 필요합니다');
+      router.push('/login');
       return;
     }
 
     const campaign = campaigns[currentIndex];
-    if (!campaign) return;
+    if (!campaign) {
+      toast.error('캠페인을 불러올 수 없습니다');
+      await loadCampaigns();
+      return;
+    }
 
     setDragDirection(direction === 'left' ? 'left' : 'right');
     
     setTimeout(async () => {
       try {
-        const action = direction === 'right' 
+        const action: 'pass' | 'like' | 'super_like' = direction === 'right' 
           ? (isSuperLike ? 'super_like' : 'like')
           : 'pass';
         
-        // 타입 안전한 스와이프 액션 저장
-        const result = await db.saveSwipeAction(
+        // saveSwipeAction 호출
+        const result = await saveSwipeAction(
           campaign.id,
           userId,
           action,
-          campaign.matchScore
+          {
+            match_score: campaign.matchScore || 75,
+            predicted_price: campaign.budget
+          }
         );
         
+        // 결과 처리
         if (result.success) {
-          // 캠페인 통계 업데이트
-          await db.updateCampaignStats(campaign.id, 'view_count');
-          
-          if (action === 'like' || action === 'super_like') {
-            await db.updateCampaignStats(campaign.id, 'like_count');
-            await db.updateCampaignStats(campaign.id, 'application_count');
-            
-            if (isSuperLike) {
-              toast.success('⭐ 슈퍼 라이크! 캠페인에 우선 지원했습니다!');
-            } else {
-              toast.success('캠페인에 지원했습니다! 🎉');
+          // 성공 메시지 표시
+          if (result.message?.includes('이미') || result.message?.includes('already')) {
+            toast('이미 지원한 캠페인입니다', { icon: '📌' });
+          } else if (action === 'super_like') {
+            toast.success('⭐ 슈퍼 라이크! 캠페인에 우선 지원했습니다!');
+            if (campaign.matchScore && campaign.matchScore > 80) {
+              setTimeout(() => {
+                toast(`🎯 매치율 ${campaign.matchScore}% - 완벽한 매치!`, { 
+                  icon: '⚡',
+                  duration: 2000 
+                });
+              }, 500);
             }
-            
-            // 매치 점수 표시
-            if (campaign.matchScore > 80) {
-              toast(`🎯 매치율 ${campaign.matchScore}% - 완벽한 매치!`, { 
-                icon: '⚡',
-                duration: 2000 
-              });
-            }
+          } else if (action === 'like') {
+            toast.success('캠페인에 지원했습니다! 🎉');
           } else {
-            toast('다음 기회에! 👋', { icon: '💨' });
+            toast('다음 기회에! 👋', { icon: '💨', duration: 1000 });
           }
-        } else if (result.error === 'Already applied') {
-          toast.error('이미 지원한 캠페인입니다');
         } else {
-          toast.error('처리 중 오류가 발생했습니다');
+          // 실패 처리
+          if (result.message) {
+            toast.error(result.message);
+          } else {
+            toast.error('처리 중 문제가 발생했습니다');
+          }
+          
+          // 세션 만료 체크
+          if (result.error?.includes('JWT') || result.error?.includes('인증')) {
+            setTimeout(() => {
+              router.push('/login');
+            }, 2000);
+          }
         }
         
         // 스와이프 카운트 업데이트
@@ -336,9 +416,26 @@ export default function CampaignsPage() {
         
         setDragDirection(null);
         
-      } catch (error) {
+      } catch (error: any) {
         console.error('스와이프 오류:', error);
-        toast.error('처리 중 오류가 발생했습니다.');
+        
+        // 네트워크 에러 체크
+        if (error?.message?.includes('fetch')) {
+          toast.error('네트워크 연결을 확인해주세요.');
+        } 
+        // 세션 에러 체크
+        else if (error?.message?.includes('JWT') || error?.message?.includes('session')) {
+          toast.error('세션이 만료되었습니다. 다시 로그인해주세요.');
+          setTimeout(() => {
+            router.push('/login');
+          }, 2000);
+        }
+        // 기타 에러
+        else {
+          toast.error('일시적인 문제가 발생했습니다. 잠시 후 다시 시도해주세요.');
+        }
+      } finally {
+        setDragDirection(null);
       }
     }, 300);
   };
@@ -407,32 +504,49 @@ export default function CampaignsPage() {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-purple-50 via-white to-pink-50">
         <div className="text-center max-w-md">
-          <RefreshCw className="w-16 h-16 text-purple-500 mx-auto mb-4 animate-spin-slow" />
-          <h2 className="text-2xl font-bold mb-2">잠시만 기다려주세요!</h2>
-          <p className="text-gray-600 mb-6">
-            새로운 캠페인을 불러오는 중입니다...
+          <div className="mb-6">
+            <div className="w-24 h-24 mx-auto bg-gradient-to-br from-purple-100 to-pink-100 rounded-full flex items-center justify-center">
+              <RefreshCw className="w-12 h-12 text-purple-600 animate-[spin_3s_linear_infinite]" />
+            </div>
+          </div>
+          <h2 className="text-2xl font-bold mb-3 text-gray-800">
+            새로운 캠페인을 찾는 중...
+          </h2>
+          <p className="text-gray-600 mb-6 leading-relaxed">
+            {campaigns.length === 0 && isLoading === false 
+              ? "현재 지원 가능한 새 캠페인이 없습니다.\n곧 새로운 캠페인이 등록될 예정이니 조금만 기다려주세요!"
+              : "잠시만 기다려주세요.\n딱 맞는 캠페인을 찾고 있어요! ✨"
+            }
           </p>
-          <button
-            onClick={async () => {
-              await loadMoreCampaigns();
-              if (campaigns.length === 0) {
-                loadDummyCampaigns();
-              }
-            }}
-            className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition flex items-center justify-center space-x-2 mx-auto"
-          >
-            <RefreshCw className="w-5 h-5" />
-            <span>캠페인 새로고침</span>
-          </button>
-          <p className="text-sm text-gray-500 mt-4">
-            남은 스와이프: {swipesLeft}/100
+          <div className="space-y-3">
+            <button
+              onClick={async () => {
+                await loadMoreCampaigns();
+                if (campaigns.length === 0) {
+                  loadDummyCampaigns();
+                }
+              }}
+              className="w-full px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:shadow-lg transition-all duration-200 flex items-center justify-center space-x-2"
+            >
+              <RefreshCw className="w-5 h-5" />
+              <span>캠페인 새로고침</span>
+            </button>
+            <button
+              onClick={() => router.push('/profile')}
+              className="w-full px-6 py-3 bg-white text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition-all duration-200"
+            >
+              프로필 업데이트하기
+            </button>
+          </div>
+          <p className="text-sm text-gray-500 mt-6">
+            💎 남은 스와이프: <span className="font-semibold text-purple-600">{swipesLeft}/100</span>
           </p>
         </div>
       </div>
     );
   }
 
-  // 이하 UI 코드는 완전히 동일하게 유지
+  // 메인 UI
   return (
     <div className="min-h-screen h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50 flex flex-col">
       <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b shadow-sm">
@@ -445,7 +559,7 @@ export default function CampaignsPage() {
               <div className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-0.5 sm:py-1 bg-purple-100 rounded-full">
                 <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 text-purple-600" />
                 <span className="text-xs sm:text-sm font-medium text-purple-700">
-                  {currentCampaign.matchScore}%
+                  {currentCampaign?.matchScore || 0}%
                 </span>
               </div>
             </div>
@@ -481,8 +595,10 @@ export default function CampaignsPage() {
         </div>
       </header>
 
-      <main className="flex-1 flex items-center justify-center px-4 pt-4 pb-36 sm:pb-32 overflow-hidden">
-        <div className="relative w-full max-w-md h-full" style={{ maxHeight: 'calc(100vh - 280px)' }}>
+      <main className="flex-1 flex flex-col items-center justify-start px-4 pt-2 pb-28 overflow-hidden">
+        <div className="relative w-full max-w-md flex-1 flex flex-col">
+          {/* 카드 영역 - 화면 대부분 차지 */}
+          <div className="relative flex-1 mb-2" style={{ maxHeight: 'calc(100vh - 240px)' }}>
           <AnimatePresence>
             {currentCampaign && (
               <motion.div
@@ -497,22 +613,25 @@ export default function CampaignsPage() {
                 }}
                 exit={{ scale: 0.95, opacity: 0 }}
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                drag
-                dragConstraints={{ left: -100, right: 100, top: -50, bottom: 0 }}
+                drag="y"
+                dragConstraints={{ top: -150, bottom: 50 }}
+                dragElastic={0.2}
                 onDrag={(_, info) => {
                   setDragY(info.offset.y);
                 }}
                 onDragEnd={(_, info) => {
                   setDragY(0);
-                  if (info.offset.y < -50 && Math.abs(info.offset.x) < 50) {
+                  // 더 낮은 임계값으로 변경 (더 쉽게 상세정보 열기)
+                  if (info.offset.y < -30) {
                     setShowDetails(true);
-                  } else if (Math.abs(info.offset.x) > 100) {
-                    handleSwipe(info.offset.x > 0 ? 'right' : 'left');
+                  }
+                  else if (info.offset.y > 100) {
+                    loadCampaigns();
                   }
                 }}
               >
-                <div className={`bg-white rounded-2xl shadow-2xl overflow-hidden h-full cursor-grab active:cursor-grabbing transition-transform ${dragY < -20 ? 'scale-[0.98]' : ''}`}>
-                  <div className="relative h-[40%] sm:h-[45%]">
+                <div className={`bg-white rounded-2xl shadow-2xl overflow-hidden h-full max-h-[580px] cursor-grab active:cursor-grabbing transition-transform ${dragY < -20 ? 'scale-[0.98]' : ''}`}>
+                  <div className="relative h-[45%] sm:h-[48%]">
                     <img 
                       src={currentCampaign.image} 
                       alt={currentCampaign.title}
@@ -526,6 +645,14 @@ export default function CampaignsPage() {
                         <span>SUPER</span>
                       </div>
                     )}
+
+                    <div className="absolute bottom-4 left-0 right-0 flex justify-center pointer-events-none animate-bounce">
+                      <div className="bg-black/70 backdrop-blur-sm text-white px-4 py-2 rounded-full flex items-center gap-2">
+                        <ChevronUp className="w-4 h-4" />
+                        <span className="text-xs font-medium">위로 밀어서 상세정보</span>
+                        <ChevronUp className="w-4 h-4" />
+                      </div>
+                    </div>
                     
                     <div className="absolute bottom-2 sm:bottom-4 left-3 sm:left-4 right-3 sm:right-4">
                       <div className="flex items-center space-x-2 sm:space-x-3 mb-1 sm:mb-2">
@@ -540,8 +667,17 @@ export default function CampaignsPage() {
                     </div>
                   </div>
                   
-                  <div className="relative p-4 sm:p-5 h-[60%] sm:h-[55%] overflow-y-auto">
-                    <h2 className="text-lg sm:text-xl font-bold mb-2">{currentCampaign.title}</h2>
+                  <div className="relative p-4 sm:p-5 h-[55%] sm:h-[52%] overflow-y-auto">
+                    {/* 상단에 스와이프 가능 영역 표시 */}
+                    <div className="absolute top-0 left-0 right-0 h-16 bg-gradient-to-b from-purple-50/50 to-transparent pointer-events-none flex items-center justify-center">
+                      <div className="flex items-center gap-2 text-purple-600">
+                        <ChevronUp className="w-4 h-4 animate-bounce" />
+                        <span className="text-xs font-medium">여기를 위로 드래그</span>
+                        <ChevronUp className="w-4 h-4 animate-bounce" />
+                      </div>
+                    </div>
+                    
+                    <h2 className="text-lg sm:text-xl font-bold mb-2 mt-8">{currentCampaign.title}</h2>
                     
                     <p className="text-xs sm:text-sm text-gray-600 mb-2 line-clamp-2">
                       {currentCampaign.description}
@@ -576,7 +712,7 @@ export default function CampaignsPage() {
                       </div>
                     </div>
                     
-                    <div className="flex overflow-x-auto space-x-1.5 scrollbar-hide">
+                    <div className="flex overflow-x-auto space-x-1.5 mb-12">
                       {currentCampaign.tags.map((tag, idx) => (
                         <span 
                           key={idx} 
@@ -586,69 +722,50 @@ export default function CampaignsPage() {
                         </span>
                       ))}
                     </div>
-                    
-                    <div className="absolute bottom-2 left-0 right-0 flex justify-center pointer-events-none">
-                      <motion.div 
-                        animate={{ y: [0, -5, 0] }}
-                        transition={{ repeat: Infinity, duration: 2 }}
-                        className="flex flex-col items-center bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full"
-                      >
-                        <ChevronUp className="w-4 h-4 text-gray-600" />
-                        <span className="text-[10px] text-gray-600 font-medium">상세정보</span>
-                      </motion.div>
-                    </div>
                   </div>
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
+        </div>
       </main>
 
-      <div className="fixed bottom-[15%] sm:bottom-[20%] left-0 right-0 z-40">
-        <div className="flex items-center justify-center space-x-5 sm:space-x-6 px-4">
+      {/* 버튼 영역 - 네비게이션 바 위로 적절히 위치 */}
+      <div className="fixed bottom-28 left-1/2 -translate-x-1/2 z-40">
+        <div className="flex items-center justify-center gap-5">
           <button
             onClick={() => handleSwipe('left')}
-            className="w-16 h-16 sm:w-18 sm:h-18 rounded-full bg-white/95 backdrop-blur-sm shadow-2xl border border-gray-100 flex items-center justify-center hover:scale-110 transition-all duration-200 active:scale-95"
+            className="w-16 h-16 rounded-full bg-white shadow-xl border-2 border-gray-100 flex items-center justify-center hover:scale-110 hover:border-red-200 transition-all duration-200 active:scale-95"
           >
-            <X className="w-7 h-7 sm:w-8 sm:h-8 text-red-500" />
+            <X className="w-7 h-7 text-red-500" />
           </button>
           
           <button
             onClick={() => handleSwipe('right', true)}
-            className="w-[72px] h-[72px] sm:w-20 sm:h-20 rounded-full bg-gradient-to-r from-yellow-400 to-orange-400 shadow-2xl flex items-center justify-center hover:scale-110 transition-all duration-200 active:scale-95 ring-4 ring-white/50"
+            className="w-20 h-20 rounded-full bg-gradient-to-r from-yellow-400 to-orange-400 shadow-2xl flex items-center justify-center hover:scale-110 transition-all duration-200 active:scale-95 ring-4 ring-white"
           >
-            <Star className="w-8 h-8 sm:w-10 sm:h-10 text-white animate-pulse" />
+            <Star className="w-9 h-9 text-white animate-pulse" />
           </button>
           
           <button
             onClick={() => handleSwipe('right')}
-            className="w-16 h-16 sm:w-18 sm:h-18 rounded-full bg-white/95 backdrop-blur-sm shadow-2xl border border-gray-100 flex items-center justify-center hover:scale-110 transition-all duration-200 active:scale-95"
+            className="w-16 h-16 rounded-full bg-white shadow-xl border-2 border-gray-100 flex items-center justify-center hover:scale-110 hover:border-green-200 transition-all duration-200 active:scale-95"
           >
-            <Heart className="w-7 h-7 sm:w-8 sm:h-8 text-green-500" />
+            <Heart className="w-7 h-7 text-green-500" />
           </button>
-        </div>
-        
-        <div className="text-center mt-3">
-          <div className="flex justify-center space-x-8 text-[11px] sm:text-xs text-gray-500">
-            <span>패스</span>
-            <span className="font-semibold text-orange-500">슈퍼</span>
-            <span>좋아요</span>
-          </div>
         </div>
       </div>
 
-      <div className="h-4 sm:h-6 bg-gradient-to-t from-white/50 to-transparent"></div>
-
       <AnimatePresence>
         {showDetails && currentCampaign && (
-          <div className="fixed inset-0 z-50">
+          <div className="fixed inset-0 z-[60]">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowDetails(false)}
-              className="absolute inset-0 bg-black/50"
+              className="absolute inset-0 bg-black/60"
             />
             
             <motion.div
@@ -664,7 +781,8 @@ export default function CampaignsPage() {
                   setShowDetails(false);
                 }
               }}
-              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl max-h-[85vh] overflow-hidden"
+              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl max-h-[85vh] overflow-hidden shadow-2xl"
+              style={{ zIndex: 61 }}
             >
               <div className="flex justify-center py-3 cursor-grab active:cursor-grabbing">
                 <div className="w-12 h-1.5 bg-gray-300 rounded-full"></div>
@@ -763,7 +881,7 @@ export default function CampaignsPage() {
                       setShowDetails(false);
                       handleSwipe('left');
                     }}
-                    className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium"
+                    className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition"
                   >
                     다음에 하기
                   </button>
@@ -772,7 +890,7 @@ export default function CampaignsPage() {
                       setShowDetails(false);
                       handleSwipe('right');
                     }}
-                    className="flex-1 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-medium"
+                    className="flex-1 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-medium hover:shadow-lg transition"
                   >
                     지원하기
                   </button>
