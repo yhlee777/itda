@@ -1,4 +1,4 @@
-// hooks/useMatchingSystem.ts
+// hooks/useAIMatching.ts
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { 
@@ -10,38 +10,23 @@ import {
 import { toast } from 'react-hot-toast';
 
 // ============================================
-// 인플루언서용 매칭 Hook
+// 인플루언서용 매칭 Hook - 수정된 버전
 // ============================================
-export function useInfluencerMatching(influencerId: string) {
+export function useInfluencerMatching(influencerId: string | null) {
   const [currentCampaign, setCurrentCampaign] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [dailySwipes, setDailySwipes] = useState({ used: 0, total: 10 });
+  // 초창기 모드: 스와이프 제한 대폭 증가 (100개)
+  const [dailySwipes, setDailySwipes] = useState({ used: 0, total: 100 });
   const [matchScore, setMatchScore] = useState<number>(0);
   
-  // 초기화 및 큐 생성
-  useEffect(() => {
-    if (!influencerId) return;
+  // 다음 캠페인 로드 - useCallback으로 메모이제이션
+  const loadNextCampaign = useCallback(async () => {
+    if (!influencerId) {
+      setCurrentCampaign(null);
+      setMatchScore(0);
+      return;
+    }
     
-    const initialize = async () => {
-      try {
-        // 매칭 시스템 초기화
-        await RealtimeMatchingCoordinator.initializeForInfluencer(influencerId);
-        
-        // 다음 캠페인 로드
-        await loadNextCampaign();
-        
-        // 일일 스와이프 카운트 로드
-        await loadSwipeCount();
-      } catch (error) {
-        console.error('Matching system initialization error:', error);
-      }
-    };
-    
-    initialize();
-  }, [influencerId]);
-  
-  // 다음 캠페인 로드
-  const loadNextCampaign = async () => {
     setIsLoading(true);
     try {
       const campaign = await CampaignQueueManager.getNextCampaign(influencerId);
@@ -67,42 +52,95 @@ export function useInfluencerMatching(influencerId: string) {
           );
           // 재시도
           const newCampaign = await CampaignQueueManager.getNextCampaign(influencerId);
-          setCurrentCampaign(newCampaign);
+          if (newCampaign) {
+            setCurrentCampaign(newCampaign);
+            const newScore = await getAIMatchScore(influencerId, newCampaign.id);
+            setMatchScore(newScore);
+          }
         }
       }
     } catch (error) {
       console.error('Error loading campaign:', error);
       toast.error('캠페인 로드 실패');
+      setCurrentCampaign(null);
+      setMatchScore(0);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [influencerId]);
   
-  // 일일 스와이프 카운트 로드
-  const loadSwipeCount = async () => {
-    const supabase = createClient();
-    const { data } = await supabase
-      .from('influencers')
-      .select('daily_swipes_count')
-      .eq('id', influencerId)
-      .single();
-    
-    if (data) {
-      setDailySwipes({
-        used: data.daily_swipes_count || 0,
-        total: 10
-      });
+  // 일일 스와이프 카운트 로드 - useCallback으로 메모이제이션
+  const loadSwipeCount = useCallback(async () => {
+    if (!influencerId) {
+      setDailySwipes({ used: 0, total: 100 }); // 초창기 모드
+      return;
     }
-  };
+    
+    try {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from('influencers')
+        .select('daily_swipes_count')
+        .eq('id', influencerId)
+        .single();
+      
+      if (data) {
+        setDailySwipes({
+          used: data.daily_swipes_count || 0,
+          total: 100 // 초창기 모드: 100개
+        });
+      }
+    } catch (error) {
+      console.error('Error loading swipe count:', error);
+      setDailySwipes({ used: 0, total: 100 }); // 초창기 모드
+    }
+  }, [influencerId]);
+  
+  // 초기화 및 큐 생성
+  useEffect(() => {
+    // influencerId가 없으면 초기화하지 않음
+    if (!influencerId) {
+      setCurrentCampaign(null);
+      setMatchScore(0);
+      setDailySwipes({ used: 0, total: 100 }); // 초창기 모드
+      return;
+    }
+    
+    const initialize = async () => {
+      try {
+        // 매칭 시스템 초기화
+        await RealtimeMatchingCoordinator.initializeForInfluencer(influencerId);
+        
+        // 다음 캠페인 로드
+        await loadNextCampaign();
+        
+        // 일일 스와이프 카운트 로드
+        await loadSwipeCount();
+      } catch (error) {
+        console.error('Matching system initialization error:', error);
+      }
+    };
+    
+    initialize();
+  }, [influencerId, loadNextCampaign, loadSwipeCount]);
   
   // 스와이프 액션 처리
   const handleSwipe = useCallback(async (
     action: 'like' | 'pass' | 'super_like'
   ) => {
-    if (!currentCampaign || dailySwipes.used >= dailySwipes.total) {
-      if (dailySwipes.used >= dailySwipes.total) {
-        toast.error('일일 스와이프 한도에 도달했습니다');
-      }
+    // influencerId가 없으면 처리하지 않음
+    if (!influencerId) {
+      toast.error('로그인이 필요합니다');
+      return;
+    }
+    
+    if (!currentCampaign) {
+      toast.error('캠페인이 없습니다');
+      return;
+    }
+    
+    if (dailySwipes.used >= dailySwipes.total) {
+      toast.error('일일 스와이프 한도에 도달했습니다');
       return;
     }
     
@@ -138,16 +176,21 @@ export function useInfluencerMatching(influencerId: string) {
     } finally {
       setIsLoading(false);
     }
-  }, [currentCampaign, dailySwipes, influencerId]);
+  }, [currentCampaign, dailySwipes, influencerId, loadNextCampaign]);
+  
+  // 핸들러 메모이제이션
+  const handleLike = useCallback(() => handleSwipe('like'), [handleSwipe]);
+  const handlePass = useCallback(() => handleSwipe('pass'), [handleSwipe]);
+  const handleSuperLike = useCallback(() => handleSwipe('super_like'), [handleSwipe]);
   
   return {
     currentCampaign,
     matchScore,
     dailySwipes,
     isLoading,
-    handleLike: () => handleSwipe('like'),
-    handlePass: () => handleSwipe('pass'),
-    handleSuperLike: () => handleSwipe('super_like'),
+    handleLike,
+    handlePass,
+    handleSuperLike,
     refreshQueue: loadNextCampaign
   };
 }
@@ -155,11 +198,87 @@ export function useInfluencerMatching(influencerId: string) {
 // ============================================
 // 광고주용 실시간 알림 Hook
 // ============================================
-export function useAdvertiserNotifications(advertiserId: string) {
+export function useAdvertiserNotifications(advertiserId: string | null) {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [applicantBatches, setApplicantBatches] = useState<any[]>([]);
   
+  // 알림 로드 함수
+  const loadNotifications = useCallback(async () => {
+    if (!advertiserId) {
+      setNotifications([]);
+      setUnreadCount(0);
+      setApplicantBatches([]);
+      return;
+    }
+    
+    try {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', advertiserId)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      
+      if (data) {
+        setNotifications(data);
+        setUnreadCount(data.filter(n => !n.is_read).length);
+        
+        // 시간별 지원자 배치 그룹화
+        const batches = data
+          .filter(n => n.type === 'new_applicant')
+          .reduce((acc: any[], notification) => {
+            const time = new Date(notification.created_at);
+            const batchTime = new Date(time);
+            batchTime.setMinutes(Math.floor(time.getMinutes() / 30) * 30);
+            
+            const existingBatch = acc.find(
+              b => b.time.getTime() === batchTime.getTime()
+            );
+            
+            if (existingBatch) {
+              existingBatch.count++;
+              existingBatch.notifications.push(notification);
+            } else {
+              acc.push({
+                id: `batch-${batchTime.getTime()}`,
+                time: batchTime,
+                count: 1,
+                notifications: [notification]
+              });
+            }
+            
+            return acc;
+          }, []);
+        
+        setApplicantBatches(batches);
+      }
+    } catch (error) {
+      console.error('Error loading notifications:', error);
+      toast.error('알림 로드 실패');
+    }
+  }, [advertiserId]);
+  
+  // 새 알림 처리
+  const handleNewNotification = useCallback((notification: any) => {
+    setNotifications(prev => [notification, ...prev]);
+    
+    if (!notification.is_read) {
+      setUnreadCount(prev => prev + 1);
+      
+      // 브라우저 알림
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(notification.title || '새 알림', {
+          body: notification.message,
+          icon: '/icon.png',
+          badge: '/badge.png'
+        });
+      }
+    }
+  }, []);
+  
+  // 실시간 구독 설정
   useEffect(() => {
     if (!advertiserId) return;
     
@@ -183,151 +302,75 @@ export function useAdvertiserNotifications(advertiserId: string) {
         event: 'INSERT',
         schema: 'public',
         table: 'campaign_influencers',
-        filter: `campaign_id=in.(SELECT id FROM campaigns WHERE advertiser_id='${advertiserId}')`
+        filter: `campaign_id=in.(select id from campaigns where advertiser_id='${advertiserId}')`
       }, (payload) => {
-        handleNewApplicant(payload.new);
+        // 새 지원자 알림
+        const notification = {
+          id: `new-applicant-${payload.new.id}`,
+          user_id: advertiserId,
+          type: 'new_applicant',
+          title: '새로운 지원자',
+          message: '캠페인에 새로운 인플루언서가 지원했습니다',
+          metadata: payload.new,
+          created_at: new Date().toISOString(),
+          is_read: false
+        };
+        handleNewNotification(notification);
       })
       .subscribe();
     
     return () => {
       supabase.removeChannel(channel);
     };
+  }, [advertiserId, loadNotifications, handleNewNotification]);
+  
+  // 읽음 처리
+  const markAsRead = useCallback(async (notificationId: string) => {
+    if (!advertiserId) return;
+    
+    try {
+      const supabase = createClient();
+      await supabase
+        .from('notifications')
+        .update({ is_read: true, read_at: new Date().toISOString() })
+        .eq('id', notificationId)
+        .eq('user_id', advertiserId);
+      
+      setNotifications(prev =>
+        prev.map(n => n.id === notificationId ? { ...n, is_read: true } : n)
+      );
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch (error) {
+      console.error('Error marking as read:', error);
+    }
   }, [advertiserId]);
   
-  const loadNotifications = async () => {
-    const supabase = createClient();
-    const { data } = await supabase
-      .from('notifications')
-      .select('*')
-      .eq('user_id', advertiserId)
-      .eq('is_read', false)
-      .order('created_at', { ascending: false })
-      .limit(20);
+  const markAllAsRead = useCallback(async () => {
+    if (!advertiserId) return;
     
-    if (data) {
-      setNotifications(data);
-      setUnreadCount(data.length);
+    try {
+      const supabase = createClient();
+      await supabase
+        .from('notifications')
+        .update({ is_read: true, read_at: new Date().toISOString() })
+        .eq('user_id', advertiserId)
+        .eq('is_read', false);
       
-      // 지원자 배치 그룹화
-      groupApplicantBatches(data);
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+      setUnreadCount(0);
+    } catch (error) {
+      console.error('Error marking all as read:', error);
     }
-  };
-  
-  const handleNewNotification = (notification: any) => {
-    setNotifications(prev => [notification, ...prev]);
-    setUnreadCount(prev => prev + 1);
-    
-    // 브라우저 알림
-    if (notification.type === 'super_like') {
-      showBrowserNotification(
-        '⭐ 슈퍼 라이크!',
-        notification.message
-      );
-    } else {
-      showBrowserNotification(
-        notification.title,
-        notification.message
-      );
-    }
-  };
-  
-  const handleNewApplicant = async (applicant: any) => {
-    // 30분/2시간 배치에 추가
-    const now = new Date();
-    const appliedAt = new Date(applicant.matched_at);
-    const minutesSince = (now.getTime() - appliedAt.getTime()) / 60000;
-    
-    if (minutesSince <= 30) {
-      updateBatch('30min', applicant);
-    } else if (minutesSince <= 120) {
-      updateBatch('2hr', applicant);
-    }
-  };
-  
-  const groupApplicantBatches = (notifications: any[]) => {
-    const batches: any[] = [];
-    const now = new Date();
-    
-    // 30분, 2시간 배치 생성
-    const intervals = [
-      { name: '30분', minutes: 30 },
-      { name: '2시간', minutes: 120 },
-      { name: '6시간', minutes: 360 }
-    ];
-    
-    intervals.forEach(interval => {
-      const applicants = notifications.filter(n => {
-        if (n.type !== 'new_applicant') return false;
-        const time = new Date(n.created_at);
-        const minutesSince = (now.getTime() - time.getTime()) / 60000;
-        return minutesSince <= interval.minutes;
-      });
-      
-      if (applicants.length > 0) {
-        batches.push({
-          id: `batch-${interval.minutes}`,
-          time: interval.name,
-          count: applicants.length,
-          applicants: applicants,
-          sentAt: new Date()
-        });
-      }
-    });
-    
-    setApplicantBatches(batches);
-  };
-  
-  const updateBatch = (batchType: string, applicant: any) => {
-    setApplicantBatches(prev => {
-      const updated = [...prev];
-      const batch = updated.find(b => b.time === batchType);
-      if (batch) {
-        batch.count++;
-        batch.applicants.push(applicant);
-      }
-      return updated;
-    });
-  };
-  
-  const showBrowserNotification = (title: string, body: string) => {
-    if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification(title, { body, icon: '/icon-192.png' });
-    }
-  };
-  
-  const markAsRead = async (notificationId: string) => {
-    const supabase = createClient();
-    await supabase
-      .from('notifications')
-      .update({ is_read: true, read_at: new Date().toISOString() })
-      .eq('id', notificationId);
-    
-    setNotifications(prev => 
-      prev.map(n => n.id === notificationId ? { ...n, is_read: true } : n)
-    );
-    setUnreadCount(prev => Math.max(0, prev - 1));
-  };
-  
-  const markAllAsRead = async () => {
-    const supabase = createClient();
-    await supabase
-      .from('notifications')
-      .update({ is_read: true, read_at: new Date().toISOString() })
-      .eq('user_id', advertiserId)
-      .eq('is_read', false);
-    
-    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-    setUnreadCount(0);
-  };
+  }, [advertiserId]);
   
   // 브라우저 알림 권한 요청
-  const requestNotificationPermission = async () => {
+  const requestNotificationPermission = useCallback(async () => {
     if ('Notification' in window && Notification.permission === 'default') {
       const permission = await Notification.requestPermission();
       return permission === 'granted';
     }
     return false;
-  };
+  }, []);
   
   return {
     notifications,
@@ -389,61 +432,3 @@ export function useAIMatchScore() {
     isCalculating
   };
 }
-
-// ============================================
-// 사용 예제
-// ============================================
-/*
-// 인플루언서 페이지에서 사용
-import { useInfluencerMatching } from '@/hooks/useMatchingSystem';
-
-function InfluencerCampaignPage() {
-  const { 
-    currentCampaign,
-    matchScore,
-    dailySwipes,
-    handleLike,
-    handlePass,
-    handleSuperLike 
-  } = useInfluencerMatching(userId);
-  
-  // 기존 UI에 버튼 연결
-  return (
-    <div>
-      {currentCampaign && (
-        <>
-          <div>매칭 점수: {matchScore}%</div>
-          <div>남은 스와이프: {dailySwipes.total - dailySwipes.used}</div>
-          <button onClick={handlePass}>Pass</button>
-          <button onClick={handleLike}>Like</button>
-          <button onClick={handleSuperLike}>Super Like</button>
-        </>
-      )}
-    </div>
-  );
-}
-
-// 광고주 페이지에서 사용
-import { useAdvertiserNotifications } from '@/hooks/useMatchingSystem';
-
-function AdvertiserDashboard() {
-  const { 
-    notifications, 
-    unreadCount,
-    applicantBatches,
-    markAsRead 
-  } = useAdvertiserNotifications(userId);
-  
-  // 기존 UI에 알림 표시
-  return (
-    <div>
-      <div>새 알림: {unreadCount}개</div>
-      {applicantBatches.map(batch => (
-        <div key={batch.id}>
-          {batch.time} - {batch.count}명 지원
-        </div>
-      ))}
-    </div>
-  );
-}
-*/

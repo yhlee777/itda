@@ -1,217 +1,216 @@
-// lib/utils/toast.ts
-import { toast as sonnerToast } from 'sonner';
+// lib/utils/toast.tsx
+'use client';
 
-// 커스텀 토스트 유틸리티
+import React from 'react';
+import { toast as hotToast, ToastOptions, Toast } from 'react-hot-toast';
+
+// CustomToastOptions 인터페이스 - 사용하지 않으므로 제거 가능
+interface CustomToastOptions extends Partial<ToastOptions> {
+  title?: string;
+  description?: string;
+}
+
+/**
+ * 커스텀 toast 유틸리티
+ * react-hot-toast를 확장하여 info, warning 등 추가 타입 지원
+ */
 export const toast = {
-  // 성공 토스트
-  success: (message: string, description?: string) => {
-    return sonnerToast.success(message, {
-      description,
+  // 기본 토스트
+  show: (message: string, options?: ToastOptions) => {
+    return hotToast(message, options);
+  },
+
+  // 성공
+  success: (message: string, options?: ToastOptions) => {
+    return hotToast.success(message, {
       duration: 3000,
-      style: {
-        background: '#10b981',
-        color: 'white',
-        border: 'none',
-      },
+      ...options,
     });
   },
 
-  // 에러 토스트
-  error: (message: string, description?: string) => {
-    return sonnerToast.error(message, {
-      description,
+  // 에러
+  error: (message: string, options?: ToastOptions) => {
+    return hotToast.error(message, {
       duration: 4000,
-      style: {
-        background: '#ef4444',
-        color: 'white',
-        border: 'none',
-      },
+      ...options,
     });
   },
 
-  // 정보 토스트
-  info: (message: string, description?: string) => {
-    return sonnerToast.info(message, {
-      description,
+  // 정보
+  info: (message: string, options?: ToastOptions) => {
+    return hotToast(message, {
+      icon: 'ℹ️',
       duration: 3000,
       style: {
-        background: '#3b82f6',
-        color: 'white',
-        border: 'none',
+        background: '#3B82F6',
+        color: '#fff',
       },
+      ...options,
     });
   },
 
-  // 경고 토스트
-  warning: (message: string, description?: string) => {
-    return sonnerToast.warning(message, {
-      description,
-      duration: 3500,
+  // 경고
+  warning: (message: string, options?: ToastOptions) => {
+    return hotToast(message, {
+      icon: '⚠️',
+      duration: 3000,
       style: {
-        background: '#f59e0b',
-        color: 'white',
-        border: 'none',
+        background: '#F59E0B',
+        color: '#fff',
       },
+      ...options,
     });
   },
 
-  // 로딩 토스트
-  loading: (message: string) => {
-    return sonnerToast.loading(message, {
-      duration: Infinity,
-      style: {
-        background: '#f3f4f6',
-        color: '#6b7280',
-      },
-    });
+  // 로딩
+  loading: (message: string, options?: ToastOptions) => {
+    return hotToast.loading(message, options);
   },
 
-  // 프라미스 토스트
+  // Promise 처리
   promise: <T,>(
-    promise: Promise<T>,
-    messages: {
+    promise: Promise<T> | (() => Promise<T>),
+    msgs: {
       loading: string;
       success: string | ((data: T) => string);
       error: string | ((error: any) => string);
-    }
+    },
+    options?: ToastOptions
   ) => {
-    return sonnerToast.promise(promise, {
-      loading: messages.loading,
-      success: messages.success,
-      error: messages.error,
+    return hotToast.promise(promise, msgs, options);
+  },
+
+  // 커스텀 토스트 - Toast 타입 명시
+  custom: (jsx: JSX.Element | ((t: Toast) => JSX.Element), options?: ToastOptions) => {
+    return hotToast.custom(jsx, options);
+  },
+
+  // 알림 토스트 (제목 + 설명)
+  notification: ({ title, description, type = 'info' }: {
+    title: string;
+    description?: string;
+    type?: 'success' | 'error' | 'info' | 'warning';
+  }) => {
+    const icons: Record<string, string> = {
+      success: '✅',
+      error: '❌',
+      info: 'ℹ️',
+      warning: '⚠️'
+    };
+
+    const colors: Record<string, { bg: string; text: string }> = {
+      success: { bg: '#10B981', text: '#fff' },
+      error: { bg: '#EF4444', text: '#fff' },
+      info: { bg: '#3B82F6', text: '#fff' },
+      warning: { bg: '#F59E0B', text: '#fff' }
+    };
+
+    return hotToast.custom((t: Toast) => (
+      <div
+        className={`${
+          t.visible ? 'animate-enter' : 'animate-leave'
+        } max-w-sm w-full shadow-lg rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5`}
+        style={{ backgroundColor: colors[type].bg }}
+      >
+        <div className="flex-1 w-0 p-4">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <span className="text-2xl">{icons[type]}</span>
+            </div>
+            <div className="ml-3 flex-1">
+              <p className="text-sm font-medium" style={{ color: colors[type].text }}>
+                {title}
+              </p>
+              {description && (
+                <p className="mt-1 text-sm opacity-90" style={{ color: colors[type].text }}>
+                  {description}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="flex border-l border-white/20">
+          <button
+            onClick={() => hotToast.dismiss(t.id)}
+            className="w-full border border-transparent rounded-none rounded-r-lg p-4 flex items-center justify-center text-sm font-medium hover:bg-white/10 focus:outline-none"
+            style={{ color: colors[type].text }}
+          >
+            닫기
+          </button>
+        </div>
+      </div>
+    ), {
+      duration: 4000,
     });
   },
 
-  // 커스텀 토스트
-  custom: (jsx: React.ReactNode) => {
-    return sonnerToast.custom(jsx);
-  },
+  // 액션 토스트 (버튼 포함)
+  action: ({
+    message,
+    actionLabel,
+    onAction,
+    type = 'info'
+  }: {
+    message: string;
+    actionLabel: string;
+    onAction: () => void;
+    type?: 'success' | 'error' | 'info' | 'warning';
+  }) => {
+    const colors: Record<string, string> = {
+      success: 'bg-green-500',
+      error: 'bg-red-500',
+      info: 'bg-blue-500',
+      warning: 'bg-yellow-500'
+    };
 
-  // 매칭 성공 알림 (특별한 스타일)
-  matchSuccess: (campaignName: string) => {
-    return sonnerToast.success(
-      `🎯 매칭 성공!`,
-      {
-        description: `${campaignName} 캠페인과 연결되었습니다`,
-        duration: 5000,
-        style: {
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          color: 'white',
-          border: 'none',
-        },
-      }
-    );
-  },
-
-  // AI 인사이트 알림
-  aiInsight: (message: string, insight: string) => {
-    return sonnerToast(message, {
-      description: insight,
-      icon: '🤖',
-      duration: 6000,
-      position: 'top-center',
-      style: {
-        background: '#f3f4f6',
-        color: '#111827',
-        border: '1px solid #e5e7eb',
-      },
+    return hotToast.custom((t: Toast) => (
+      <div className={`${
+        t.visible ? 'animate-enter' : 'animate-leave'
+      } max-w-md w-full ${colors[type]} shadow-lg rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5`}>
+        <div className="flex-1 w-0 p-4">
+          <p className="text-sm font-medium text-white">
+            {message}
+          </p>
+        </div>
+        <div className="flex">
+          <button
+            onClick={() => {
+              onAction();
+              hotToast.dismiss(t.id);
+            }}
+            className="w-full border-l border-white/20 rounded-none rounded-r-lg p-4 flex items-center justify-center text-sm font-medium text-white hover:bg-white/10 focus:outline-none focus:ring-2"
+          >
+            {actionLabel}
+          </button>
+        </div>
+      </div>
+    ), {
+      duration: 5000,
     });
-  },
-
-  // 지원자 알림
-  newApplicant: (count: number, campaignId: string) => {
-    return sonnerToast(
-      `새로운 지원자 ${count}명`,
-      {
-        description: '클릭하여 확인하기',
-        icon: '👥',
-        duration: 5000,
-        action: {
-          label: '확인',
-          onClick: () => {
-            window.location.href = `/dashboard/campaigns/${campaignId}/applicants`;
-          },
-        },
-      }
-    );
-  },
-
-  // 가격 변동 알림
-  priceUpdate: (price: number, change: number) => {
-    const isIncrease = change > 0;
-    return sonnerToast(
-      `단가 ${isIncrease ? '상승' : '하락'}`,
-      {
-        description: `${price.toLocaleString()}원 (${Math.abs(change)}%)`,
-        icon: isIncrease ? '📈' : '📉',
-        duration: 4000,
-        style: {
-          background: isIncrease ? '#fef3c7' : '#fee2e2',
-          color: isIncrease ? '#92400e' : '#991b1b',
-          border: `1px solid ${isIncrease ? '#fde68a' : '#fecaca'}`,
-        },
-      }
-    );
-  },
-
-  // 결제 완료
-  paymentComplete: (amount: number, campaignName: string) => {
-    return sonnerToast.success(
-      `💰 결제 완료`,
-      {
-        description: `${campaignName}: ${amount.toLocaleString()}원`,
-        duration: 5000,
-        style: {
-          background: '#10b981',
-          color: 'white',
-        },
-      }
-    );
   },
 
   // 토스트 닫기
-  dismiss: (toastId?: string | number) => {
-    return sonnerToast.dismiss(toastId);
+  dismiss: (toastId?: string) => {
+    if (toastId) {
+      hotToast.dismiss(toastId);
+    } else {
+      hotToast.dismiss();
+    }
   },
+
+  // 모든 토스트 제거
+  remove: (toastId?: string) => {
+    if (toastId) {
+      hotToast.remove(toastId);
+    } else {
+      // 모든 토스트 제거는 지원하지 않음
+      hotToast.dismiss();
+    }
+  }
 };
 
-// 사용 예제
-/*
-import { toast } from '@/lib/utils/toast';
+// 타입 내보내기
+export type { ToastOptions };
 
-// 기본 사용
-toast.success('성공했습니다!');
-toast.error('오류가 발생했습니다');
-toast.info('알려드립니다', '새로운 기능이 추가되었습니다');
-toast.warning('주의하세요');
-
-// 프라미스 처리
-toast.promise(
-  fetch('/api/data'),
-  {
-    loading: '데이터 불러오는 중...',
-    success: (data) => `${data.length}개 항목 로드 완료`,
-    error: (err) => `오류: ${err.message}`,
-  }
-);
-
-// 특별한 알림
-toast.matchSuccess('나이키 캠페인');
-toast.aiInsight('AI 분석 완료', '매칭률 92%로 높은 편입니다');
-toast.newApplicant(5, 'campaign-123');
-toast.priceUpdate(3500000, 12.5);
-toast.paymentComplete(2500000, '설화수 캠페인');
-
-// 커스텀 JSX
-toast.custom(
-  <div className="bg-white p-4 rounded-lg shadow-lg">
-    <h3 className="font-bold">커스텀 알림</h3>
-    <p>원하는 내용을 자유롭게</p>
-  </div>
-);
-
-// 로딩 상태 업데이트
-const loadingId = toast.loading('처리 중...');
-// 나중에 업데이트
-toast.success('완료!', { id: loadingId });
-*/
+// 기본 내보내기
+export default toast;

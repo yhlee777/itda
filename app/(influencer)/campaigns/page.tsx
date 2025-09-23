@@ -1,19 +1,17 @@
-// app/(influencer)/campaigns/page.tsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Heart, X, Star, Share2, Clock, TrendingUp, Users, 
-  DollarSign, Calendar, ChevronLeft, ChevronRight,
+  DollarSign, Calendar, ChevronUp,
   Sparkles, Zap, AlertCircle, Info, Instagram, Youtube,
-  Coffee, CheckCircle, XCircle, Shield, RefreshCw
+  Coffee, CheckCircle, XCircle, Shield, RefreshCw, MapPin, Briefcase
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { saveSwipeAction } from '@/lib/campaign/actions';
-// 매칭 시스템 Hook 추가
 import { useInfluencerMatching } from '@/hooks/useAIMatching';
 import { CampaignQueueManager, SwipeActionHandler } from '@/lib/matching/realtime-matching-algorithm';
 
@@ -40,27 +38,37 @@ export default function CampaignsPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [dragDirection, setDragDirection] = useState<'left' | 'right' | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [swipesLeft, setSwipesLeft] = useState(10);
+  const [swipesLeft, setSwipesLeft] = useState(100);
   const [showDetails, setShowDetails] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [nextResetTime, setNextResetTime] = useState<Date | null>(null);
+  const [dragY, setDragY] = useState(0);
 
   const router = useRouter();
   const supabase = createClient();
-
-  // 매칭 시스템 Hook 사용 (userId가 있을 때만)
-  const matchingSystem = userId ? useInfluencerMatching(userId) : null;
+  const matchingSystem = useInfluencerMatching(userId);
 
   useEffect(() => {
     initializePage();
   }, []);
 
-  // 매칭 시스템의 캠페인이 로드되면 업데이트
   useEffect(() => {
     if (matchingSystem?.currentCampaign && userId) {
       updateCampaignWithMatchScore();
     }
-  }, [matchingSystem?.currentCampaign, matchingSystem?.matchScore]);
+  }, [matchingSystem?.currentCampaign, matchingSystem?.matchScore, userId]);
+
+  useEffect(() => {
+    if (campaigns.length === 0 && !isLoading && userId && swipesLeft > 0) {
+      const loadNewCampaigns = async () => {
+        await loadCampaigns();
+        if (campaigns.length === 0) {
+          loadDummyCampaigns();
+        }
+      };
+      loadNewCampaigns();
+    }
+  }, [currentIndex]);
 
   const initializePage = async () => {
     try {
@@ -73,11 +81,9 @@ export default function CampaignsPage() {
       
       setUserId(user.id);
 
-      // 매칭 시스템의 일일 스와이프 카운트 사용
       if (matchingSystem) {
         setSwipesLeft(matchingSystem.dailySwipes.total - matchingSystem.dailySwipes.used);
       } else {
-        // 기존 로직 유지 (fallback)
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         
@@ -88,17 +94,15 @@ export default function CampaignsPage() {
           .gte('swiped_at', today.toISOString());
 
         const swipesUsed = todaySwipes?.length || 0;
-        setSwipesLeft(10 - swipesUsed);
+        setSwipesLeft(100 - swipesUsed);
       }
 
-      // 다음 리셋 시간 계산 (3시간마다)
       const nextReset = new Date();
       const hours = nextReset.getHours();
       const nextResetHour = Math.ceil(hours / 3) * 3;
       nextReset.setHours(nextResetHour, 0, 0, 0);
       setNextResetTime(nextReset);
 
-      // 캠페인 로드
       await loadCampaigns();
     } catch (error) {
       console.error('초기화 오류:', error);
@@ -110,10 +114,8 @@ export default function CampaignsPage() {
   const updateCampaignWithMatchScore = async () => {
     if (!matchingSystem?.currentCampaign || !userId) return;
 
-    // Supabase 캠페인을 Campaign 인터페이스로 변환
     const supabaseCampaign = matchingSystem.currentCampaign;
     
-    // 광고주 정보 가져오기
     const { data: advertiser } = await supabase
       .from('advertisers')
       .select('company_name, company_logo')
@@ -138,7 +140,6 @@ export default function CampaignsPage() {
       platform: ['instagram']
     };
 
-    // 기존 캠페인 배열에 추가 또는 업데이트
     setCampaigns(prev => {
       const existing = prev.find(c => c.id === updatedCampaign.id);
       if (existing) {
@@ -153,7 +154,6 @@ export default function CampaignsPage() {
     if (!userId) return;
 
     try {
-      // 매칭 시스템에서 캠페인 큐 생성
       const { data: influencer } = await supabase
         .from('influencers')
         .select('categories')
@@ -164,7 +164,6 @@ export default function CampaignsPage() {
         await CampaignQueueManager.generateQueue(userId, influencer.categories || []);
       }
 
-      // 큐에서 캠페인 가져오기
       const { data: queueItems } = await supabase
         .from('campaign_queue')
         .select(`
@@ -179,7 +178,7 @@ export default function CampaignsPage() {
         `)
         .eq('influencer_id', userId)
         .order('queue_order', { ascending: true })
-        .limit(10);
+        .limit(20);
 
       if (queueItems && queueItems.length > 0) {
         const mappedCampaigns = await Promise.all(
@@ -187,7 +186,6 @@ export default function CampaignsPage() {
             const campaign = item.campaigns;
             if (!campaign) return null;
 
-            // 현재 캠페인의 매칭 점수는 hook에서 제공
             const matchScore = item.category_priority ? item.category_priority * 30 : 75;
 
             const formattedCampaign: Campaign = {
@@ -212,19 +210,20 @@ export default function CampaignsPage() {
           })
         );
 
-        // null 값 필터링하고 타입 안전하게 처리
         const validCampaigns: Campaign[] = mappedCampaigns.filter(
           (campaign): campaign is Campaign => campaign !== null
         );
         
-        setCampaigns(validCampaigns);
+        if (validCampaigns.length > 0) {
+          setCampaigns(validCampaigns);
+        } else {
+          loadDummyCampaigns();
+        }
       } else {
-        // 큐가 비어있으면 기존 더미 데이터 사용
         loadDummyCampaigns();
       }
     } catch (error) {
       console.error('캠페인 로드 오류:', error);
-      // 오류 시 더미 데이터 사용
       loadDummyCampaigns();
     }
   };
@@ -264,75 +263,122 @@ export default function CampaignsPage() {
         estimatedReach: 30000,
         platform: ['instagram']
       },
+      {
+        id: '3',
+        brandName: '스타벅스',
+        brandLogo: '☕',
+        title: '여름 신메뉴 프로모션',
+        description: '새로운 여름 음료 라인을 소개할 카페 인플루언서를 찾습니다.',
+        budget: 2000000,
+        category: '푸드/음료',
+        requirements: ['메뉴 리뷰 2개', '매장 방문 스토리 3개'],
+        deadline: '2024-08-10',
+        image: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93',
+        tags: ['카페', '음료', '여름메뉴'],
+        matchScore: 78,
+        estimatedReach: 40000,
+        platform: ['instagram']
+      },
+      {
+        id: '4',
+        brandName: '삼성전자',
+        brandLogo: '📱',
+        title: '갤럭시 Z플립6 체험단',
+        description: '최신 폴더블폰의 혁신적인 기능을 소개해주실 테크 인플루언서 모집!',
+        budget: 5000000,
+        category: '테크/가전',
+        requirements: ['언박싱 영상 1개', '상세 리뷰 포스팅 2개', '일주일 사용 후기'],
+        deadline: '2024-08-20',
+        image: 'https://images.unsplash.com/photo-1592899677977-9c10ca588bbd',
+        tags: ['테크', '스마트폰', '갤럭시'],
+        matchScore: 95,
+        estimatedReach: 100000,
+        isSuper: true,
+        platform: ['youtube', 'instagram']
+      },
+      {
+        id: '5',
+        brandName: '올리브영',
+        brandLogo: '🛍️',
+        title: '하반기 세일 프로모션',
+        description: '올리브영 추천템을 소개해주실 뷰티 크리에이터를 찾습니다.',
+        budget: 1800000,
+        category: '뷰티/쇼핑',
+        requirements: ['제품 추천 포스팅 3개', '할인 정보 공유'],
+        deadline: '2024-07-25',
+        image: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9',
+        tags: ['뷰티', '쇼핑', '할인'],
+        matchScore: 82,
+        estimatedReach: 35000,
+        platform: ['instagram']
+      }
     ];
 
     setCampaigns(mockCampaigns);
   };
 
-  // 스와이프 핸들러 - 매칭 시스템과 통합
   const handleSwipe = async (direction: 'left' | 'right', isSuperLike?: boolean) => {
     if (swipesLeft <= 0) {
       toast.error('오늘의 스와이프를 모두 사용했습니다!');
       return;
     }
 
-    if (!userId) return;
+    if (!userId) {
+      toast.error('로그인이 필요합니다');
+      return;
+    }
 
     const campaign = campaigns[currentIndex];
     if (!campaign) return;
 
     setDragDirection(direction === 'left' ? 'left' : 'right');
     
-    // 애니메이션 후 처리
     setTimeout(async () => {
       try {
         if (direction === 'right') {
           if (isSuperLike && matchingSystem) {
-            // Super Like - 매칭 시스템 사용
             await matchingSystem.handleSuperLike();
             toast.success('⭐ 슈퍼 라이크! 캠페인에 우선 지원했습니다!');
           } else if (matchingSystem) {
-            // 일반 Like - 매칭 시스템 사용
             await matchingSystem.handleLike();
             toast.success('캠페인에 지원했습니다! 🎉');
           } else {
-            // Fallback - 기존 로직
             await saveSwipeAction(campaign.id, userId, 'like');
             toast.success('캠페인에 지원했습니다! 🎉');
           }
         } else {
           if (matchingSystem) {
-            // Pass - 매칭 시스템 사용
             await matchingSystem.handlePass();
             toast('다음 기회에! 👋', { icon: '💨' });
           } else {
-            // Fallback - 기존 로직
             await saveSwipeAction(campaign.id, userId, 'pass');
             toast('다음 기회에! 👋', { icon: '💨' });
           }
         }
 
-        // 스와이프 카운트 업데이트
-        if (matchingSystem) {
+        if (matchingSystem?.dailySwipes) {
           setSwipesLeft(matchingSystem.dailySwipes.total - matchingSystem.dailySwipes.used - 1);
         } else {
-          setSwipesLeft(swipesLeft - 1);
+          setSwipesLeft(prev => prev - 1);
         }
 
-        // 다음 캠페인으로
         if (currentIndex < campaigns.length - 1) {
           setCurrentIndex(currentIndex + 1);
         } else {
-          // 캠페인이 끝났을 때
-          if (matchingSystem) {
-            // 큐 새로고침
+          toast('새로운 캠페인을 불러오는 중... 🔄');
+          
+          if (matchingSystem?.refreshQueue) {
             await matchingSystem.refreshQueue();
-            await loadCampaigns();
+          }
+          
+          await loadCampaigns();
+          
+          if (campaigns.length > 0) {
             setCurrentIndex(0);
-          } else if (swipesLeft - 1 > 0) {
-            toast('추가 캠페인을 확인하려면 새로고침 버튼을 눌러주세요! 🔄');
+            toast.success('새로운 캠페인이 준비되었습니다! ✨');
           } else {
-            toast('오늘의 스와이프를 모두 사용했습니다! 내일 다시 만나요 🌟');
+            loadDummyCampaigns();
+            setCurrentIndex(0);
           }
         }
         
@@ -344,17 +390,15 @@ export default function CampaignsPage() {
     }, 300);
   };
 
-  // 추가 캠페인 로드
   const loadMoreCampaigns = async () => {
     toast('새로운 캠페인을 불러오는 중...');
-    if (matchingSystem) {
+    if (matchingSystem?.refreshQueue) {
       await matchingSystem.refreshQueue();
     }
     await loadCampaigns();
     setCurrentIndex(0);
   };
 
-  // 남은 시간 계산
   const getTimeUntilReset = () => {
     if (!nextResetTime) return '계산 중...';
     
@@ -374,7 +418,7 @@ export default function CampaignsPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-white to-pink-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">캠페인을 불러오는 중...</p>
@@ -383,236 +427,410 @@ export default function CampaignsPage() {
     );
   }
 
-  if (campaigns.length === 0 || currentIndex >= campaigns.length) {
+  const currentCampaign = campaigns[currentIndex];
+
+  if (!currentCampaign && swipesLeft === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-purple-50 via-white to-pink-50">
         <div className="text-center max-w-md">
           <Coffee className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h2 className="text-2xl font-bold mb-2">오늘은 여기까지!</h2>
           <p className="text-gray-600 mb-4">
-            모든 캠페인을 확인했습니다. 
+            오늘의 스와이프를 모두 사용했습니다. 
             내일 다시 새로운 캠페인이 준비됩니다.
           </p>
-          <p className="text-sm text-purple-600 font-semibold">
-            다음 업데이트: {getTimeUntilReset()}
+          <p className="text-sm text-gray-500 mb-4">
+            다음 리셋까지: {getTimeUntilReset()}
           </p>
           <button
-            onClick={() => router.push('/applications')}
-            className="mt-6 px-6 py-3 bg-purple-600 text-white rounded-lg"
+            onClick={() => router.push('/profile')}
+            className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
           >
-            지원 현황 보기
+            프로필 관리하기
           </button>
         </div>
       </div>
     );
   }
 
-  const currentCampaign = campaigns[currentIndex];
+  if (!currentCampaign && swipesLeft > 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-purple-50 via-white to-pink-50">
+        <div className="text-center max-w-md">
+          <RefreshCw className="w-16 h-16 text-purple-500 mx-auto mb-4 animate-spin-slow" />
+          <h2 className="text-2xl font-bold mb-2">잠시만 기다려주세요!</h2>
+          <p className="text-gray-600 mb-6">
+            새로운 캠페인을 불러오는 중입니다...
+          </p>
+          <button
+            onClick={async () => {
+              await loadMoreCampaigns();
+              if (campaigns.length === 0) {
+                loadDummyCampaigns();
+              }
+            }}
+            className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition flex items-center justify-center space-x-2 mx-auto"
+          >
+            <RefreshCw className="w-5 h-5" />
+            <span>캠페인 새로고침</span>
+          </button>
+          <p className="text-sm text-gray-500 mt-4">
+            남은 스와이프: {swipesLeft}/100
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 pb-20">
-      {/* 헤더 - UI 그대로 유지, 매칭 시스템 데이터만 사용 */}
-      <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-lg border-b">
-        <div className="max-w-lg mx-auto px-4 py-4">
+    <div className="min-h-screen h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50 flex flex-col">
+      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b shadow-sm">
+        <div className="w-full px-4 py-3 sm:py-4">
           <div className="flex items-center justify-between">
-            <h1 className="text-xl font-bold">캠페인 탐색</h1>
-            <div className="flex items-center gap-3">
-              <div className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-sm font-medium">
-                오늘 {swipesLeft}/10
+            <div className="flex items-center space-x-2 sm:space-x-4">
+              <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                Itda
+              </h1>
+              <div className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-0.5 sm:py-1 bg-purple-100 rounded-full">
+                <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 text-purple-600" />
+                <span className="text-xs sm:text-sm font-medium text-purple-700">
+                  {currentCampaign.matchScore}%
+                </span>
               </div>
-              <div className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm font-medium">
-                {currentIndex + 1}/{campaigns.length}
-              </div>
-              <div className="flex items-center gap-1 text-sm text-gray-600">
-                <Clock className="w-4 h-4" />
-                {getTimeUntilReset()}
+            </div>
+            
+            <div className="flex items-center space-x-2 sm:space-x-4">
+              <button
+                onClick={loadMoreCampaigns}
+                className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg transition"
+                title="캠페인 새로고침"
+              >
+                <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
+              </button>
+              
+              <div className="flex items-center space-x-1 sm:space-x-2">
+                <div className="text-right">
+                  <p className="text-[10px] sm:text-xs text-gray-500">스와이프</p>
+                  <p className="text-sm sm:text-lg font-bold text-gray-800">{swipesLeft}</p>
+                </div>
+                <div className="relative">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gray-200 overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-t from-purple-500 to-pink-500 transition-all"
+                      style={{ 
+                        height: `${(swipesLeft / 100) * 100}%`,
+                        marginTop: `${((100 - swipesLeft) / 100) * 100}%`
+                      }}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* 메인 카드 영역 - UI 완전히 동일 */}
-      <div className="max-w-lg mx-auto px-4 pt-8">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={currentCampaign.id}
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ 
-              scale: 1, 
-              opacity: 1,
-              x: dragDirection === 'left' ? -500 : dragDirection === 'right' ? 500 : 0,
-              rotate: dragDirection === 'left' ? -30 : dragDirection === 'right' ? 30 : 0
-            }}
-            exit={{ scale: 0.8, opacity: 0 }}
-            transition={{ type: "spring", duration: 0.3 }}
-            className="relative"
-          >
-            {/* 슈퍼 캠페인 표시 - AI 매칭 점수 기반 */}
-            {(currentCampaign.isSuper || currentCampaign.matchScore >= 90) && (
-              <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 z-10">
-                <div className="bg-gradient-to-r from-yellow-400 to-orange-400 text-white px-4 py-1 rounded-full text-xs font-bold flex items-center gap-1">
-                  <Sparkles className="w-3 h-3" />
-                  AI 추천
-                </div>
-              </div>
-            )}
-
-            {/* 캠페인 카드 - 완전히 동일한 UI */}
-            <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-              {/* 이미지 영역 */}
-              <div className="relative h-64 bg-gray-200">
-                <img 
-                  src={currentCampaign.image}
-                  alt={currentCampaign.title}
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                
-                {/* 브랜드 정보 */}
-                <div className="absolute top-4 left-4 bg-white/90 backdrop-blur rounded-lg px-3 py-2 flex items-center gap-2">
-                  <span className="text-2xl">{currentCampaign.brandLogo}</span>
-                  <span className="font-semibold text-sm">{currentCampaign.brandName}</span>
-                  {currentCampaign.matchScore >= 90 && (
-                    <Shield className="w-4 h-4 text-blue-500" />
-                  )}
-                </div>
-
-                {/* 매칭 점수 - 실제 AI 점수 표시 */}
-                <div className="absolute top-4 right-4 bg-purple-600 text-white rounded-lg px-3 py-2">
-                  <div className="text-xs">매칭률</div>
-                  <div className="text-lg font-bold">
-                    {matchingSystem?.matchScore || currentCampaign.matchScore}%
-                  </div>
-                </div>
-
-                {/* 예산 */}
-                <div className="absolute bottom-4 left-4 text-white">
-                  <div className="text-sm opacity-90">예산</div>
-                  <div className="text-2xl font-bold">₩{currentCampaign.budget.toLocaleString()}</div>
-                </div>
-              </div>
-
-              {/* 콘텐츠 영역 */}
-              <div className="p-6">
-                <h2 className="text-xl font-bold mb-2">{currentCampaign.title}</h2>
-                <p className="text-gray-600 text-sm mb-4">{currentCampaign.description}</p>
-
-                {/* 태그 */}
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {currentCampaign.tags.map((tag, idx) => (
-                    <span 
-                      key={idx}
-                      className="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs"
-                    >
-                      #{tag}
-                    </span>
-                  ))}
-                </div>
-
-                {/* 요구사항 */}
-                <div className="bg-purple-50 rounded-lg p-4 mb-4">
-                  <h3 className="font-semibold text-sm mb-2">요구사항</h3>
-                  <ul className="space-y-1">
-                    {currentCampaign.requirements.map((req, idx) => (
-                      <li key={idx} className="text-xs text-gray-700 flex items-start gap-2">
-                        <CheckCircle className="w-3 h-3 text-purple-600 mt-0.5 shrink-0" />
-                        <span>{req}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* 추가 정보 */}
-                <div className="flex justify-between text-xs text-gray-500">
-                  <div className="flex items-center gap-1">
-                    <Calendar className="w-3 h-3" />
-                    <span>마감 {currentCampaign.deadline}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Users className="w-3 h-3" />
-                    <span>예상 도달 {currentCampaign.estimatedReach.toLocaleString()}명</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* 상세보기 버튼 */}
-              <button 
-                onClick={() => setShowDetails(!showDetails)}
-                className="w-full py-3 bg-gray-50 text-gray-700 text-sm font-medium hover:bg-gray-100 transition-colors flex items-center justify-center gap-2"
+      <main className="flex-1 flex items-center justify-center px-4 pt-4 pb-36 sm:pb-32 overflow-hidden">
+        <div className="relative w-full max-w-md h-full" style={{ maxHeight: 'calc(100vh - 280px)' }}>
+          <AnimatePresence>
+            {currentCampaign && (
+              <motion.div
+                key={currentCampaign.id}
+                className="absolute inset-0"
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ 
+                  scale: 1, 
+                  opacity: 1,
+                  x: dragDirection === 'left' ? -300 : dragDirection === 'right' ? 300 : 0,
+                  rotate: dragDirection === 'left' ? -20 : dragDirection === 'right' ? 20 : 0
+                }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                drag
+                dragConstraints={{ left: -100, right: 100, top: -50, bottom: 0 }}
+                onDrag={(_, info) => {
+                  setDragY(info.offset.y);
+                }}
+                onDragEnd={(_, info) => {
+                  setDragY(0);
+                  if (info.offset.y < -50 && Math.abs(info.offset.x) < 50) {
+                    setShowDetails(true);
+                  } else if (Math.abs(info.offset.x) > 100) {
+                    handleSwipe(info.offset.x > 0 ? 'right' : 'left');
+                  }
+                }}
               >
-                <Info className="w-4 h-4" />
-                {showDetails ? '간단히 보기' : '자세히 보기'}
-              </button>
-            </div>
-          </motion.div>
-        </AnimatePresence>
-      </div>
+                <div className={`bg-white rounded-2xl shadow-2xl overflow-hidden h-full cursor-grab active:cursor-grabbing transition-transform ${dragY < -20 ? 'scale-[0.98]' : ''}`}>
+                  <div className="relative h-[40%] sm:h-[45%]">
+                    <img 
+                      src={currentCampaign.image} 
+                      alt={currentCampaign.title}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                    
+                    {currentCampaign.isSuper && (
+                      <div className="absolute top-2 sm:top-4 left-2 sm:left-4 px-2 sm:px-3 py-0.5 sm:py-1 bg-gradient-to-r from-yellow-400 to-orange-400 text-white text-[10px] sm:text-xs font-bold rounded-full flex items-center space-x-1 animate-pulse">
+                        <Star className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                        <span>SUPER</span>
+                      </div>
+                    )}
+                    
+                    <div className="absolute bottom-2 sm:bottom-4 left-3 sm:left-4 right-3 sm:right-4">
+                      <div className="flex items-center space-x-2 sm:space-x-3 mb-1 sm:mb-2">
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white rounded-full flex items-center justify-center text-xl sm:text-2xl shadow-md">
+                          {currentCampaign.brandLogo}
+                        </div>
+                        <div>
+                          <h3 className="text-white font-bold text-sm sm:text-lg">{currentCampaign.brandName}</h3>
+                          <p className="text-white/80 text-xs sm:text-sm">{currentCampaign.category}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="relative p-4 sm:p-5 h-[60%] sm:h-[55%] overflow-y-auto">
+                    <h2 className="text-lg sm:text-xl font-bold mb-2">{currentCampaign.title}</h2>
+                    
+                    <p className="text-xs sm:text-sm text-gray-600 mb-2 line-clamp-2">
+                      {currentCampaign.description}
+                    </p>
+                    
+                    <div className="grid grid-cols-3 gap-2 mb-3">
+                      <div className="text-center">
+                        <DollarSign className="w-4 h-4 text-purple-500 mx-auto mb-1" />
+                        <p className="text-[10px] text-gray-500">예산</p>
+                        <p className="text-xs font-bold">₩{(currentCampaign.budget/1000000).toFixed(1)}M</p>
+                      </div>
+                      <div className="text-center">
+                        <Users className="w-4 h-4 text-blue-500 mx-auto mb-1" />
+                        <p className="text-[10px] text-gray-500">도달</p>
+                        <p className="text-xs font-bold">{(currentCampaign.estimatedReach/1000).toFixed(0)}K</p>
+                      </div>
+                      <div className="text-center">
+                        <Calendar className="w-4 h-4 text-green-500 mx-auto mb-1" />
+                        <p className="text-[10px] text-gray-500">마감</p>
+                        <p className="text-xs font-bold">{new Date(currentCampaign.deadline).getMonth()+1}/{new Date(currentCampaign.deadline).getDate()}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="mb-2">
+                      <p className="text-xs font-medium text-gray-700 mb-1">요구사항</p>
+                      <div className="flex flex-wrap gap-1">
+                        {currentCampaign.requirements.slice(0, 3).map((req, idx) => (
+                          <span key={idx} className="text-[10px] bg-gray-100 px-2 py-0.5 rounded-full text-gray-600">
+                            {req}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    <div className="flex overflow-x-auto space-x-1.5 scrollbar-hide">
+                      {currentCampaign.tags.map((tag, idx) => (
+                        <span 
+                          key={idx} 
+                          className="inline-block px-2 py-0.5 bg-purple-100 text-purple-700 text-[10px] rounded-full whitespace-nowrap"
+                        >
+                          #{tag}
+                        </span>
+                      ))}
+                    </div>
+                    
+                    <div className="absolute bottom-2 left-0 right-0 flex justify-center pointer-events-none">
+                      <motion.div 
+                        animate={{ y: [0, -5, 0] }}
+                        transition={{ repeat: Infinity, duration: 2 }}
+                        className="flex flex-col items-center bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full"
+                      >
+                        <ChevronUp className="w-4 h-4 text-gray-600" />
+                        <span className="text-[10px] text-gray-600 font-medium">상세정보</span>
+                      </motion.div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </main>
 
-      {/* 액션 버튼 - 매칭 시스템과 연동, UI는 동일 */}
-      <div className="fixed bottom-20 left-0 right-0 px-4">
-        <div className="max-w-lg mx-auto flex justify-center gap-6 mt-8">
+      <div className="fixed bottom-[15%] sm:bottom-[20%] left-0 right-0 z-40">
+        <div className="flex items-center justify-center space-x-5 sm:space-x-6 px-4">
           <button
             onClick={() => handleSwipe('left')}
-            disabled={swipesLeft === 0}
-            className="w-16 h-16 bg-white rounded-full shadow-lg flex items-center justify-center hover:scale-110 transition-transform disabled:opacity-50"
+            className="w-16 h-16 sm:w-18 sm:h-18 rounded-full bg-white/95 backdrop-blur-sm shadow-2xl border border-gray-100 flex items-center justify-center hover:scale-110 transition-all duration-200 active:scale-95"
           >
-            <X className="w-8 h-8 text-red-500" />
+            <X className="w-7 h-7 sm:w-8 sm:h-8 text-red-500" />
           </button>
-
+          
           <button
-            onClick={() => setShowDetails(true)}
-            className="w-16 h-16 bg-white rounded-full shadow-lg flex items-center justify-center hover:scale-110 transition-transform"
+            onClick={() => handleSwipe('right', true)}
+            className="w-[72px] h-[72px] sm:w-20 sm:h-20 rounded-full bg-gradient-to-r from-yellow-400 to-orange-400 shadow-2xl flex items-center justify-center hover:scale-110 transition-all duration-200 active:scale-95 ring-4 ring-white/50"
           >
-            <Info className="w-8 h-8 text-blue-500" />
+            <Star className="w-8 h-8 sm:w-10 sm:h-10 text-white animate-pulse" />
           </button>
-
-          {/* Super Like 버튼 추가 (매칭 점수 85 이상일 때만) */}
-          {(matchingSystem?.matchScore || currentCampaign.matchScore) >= 85 && (
-            <button
-              onClick={() => handleSwipe('right', true)}
-              disabled={swipesLeft === 0}
-              className="w-16 h-16 bg-gradient-to-r from-yellow-400 to-orange-400 rounded-full shadow-lg flex items-center justify-center hover:scale-110 transition-transform disabled:opacity-50"
-            >
-              <Star className="w-8 h-8 text-white" />
-            </button>
-          )}
-
+          
           <button
             onClick={() => handleSwipe('right')}
-            disabled={swipesLeft === 0}
-            className="w-16 h-16 bg-white rounded-full shadow-lg flex items-center justify-center hover:scale-110 transition-transform disabled:opacity-50"
+            className="w-16 h-16 sm:w-18 sm:h-18 rounded-full bg-white/95 backdrop-blur-sm shadow-2xl border border-gray-100 flex items-center justify-center hover:scale-110 transition-all duration-200 active:scale-95"
           >
-            <Heart className="w-8 h-8 text-green-500" />
+            <Heart className="w-7 h-7 sm:w-8 sm:h-8 text-green-500" />
           </button>
         </div>
-
-        {/* 스와이프 제한 안내 - UI 동일 */}
-        {swipesLeft === 0 && (
-          <div className="mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5" />
-              <div>
-                <p className="text-sm font-semibold text-yellow-800">
-                  오늘의 스와이프를 모두 사용했습니다
-                </p>
-                <p className="text-xs text-yellow-700 mt-1">
-                  {getTimeUntilReset()} 후에 다시 10개의 캠페인을 확인할 수 있습니다.
-                  프리미엄 구독으로 무제한 스와이프를 즐기세요!
-                </p>
-              </div>
-            </div>
+        
+        <div className="text-center mt-3">
+          <div className="flex justify-center space-x-8 text-[11px] sm:text-xs text-gray-500">
+            <span>패스</span>
+            <span className="font-semibold text-orange-500">슈퍼</span>
+            <span>좋아요</span>
           </div>
-        )}
-
-        {/* 팁 - 매칭 점수가 높을 때 Super Like 안내 추가 */}
-        <div className="mt-6 text-center text-xs text-gray-500">
-          💡 왼쪽: 패스 | 오른쪽: 지원하기
-          {(matchingSystem?.matchScore || currentCampaign.matchScore) >= 85 && (
-            <span className="block mt-1">⭐ 별: 슈퍼 지원 (우선 검토)</span>
-          )}
         </div>
       </div>
+
+      <div className="h-4 sm:h-6 bg-gradient-to-t from-white/50 to-transparent"></div>
+
+      <AnimatePresence>
+        {showDetails && currentCampaign && (
+          <div className="fixed inset-0 z-50">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowDetails(false)}
+              className="absolute inset-0 bg-black/50"
+            />
+            
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              drag="y"
+              dragConstraints={{ top: 0 }}
+              dragElastic={0.2}
+              onDragEnd={(_, info) => {
+                if (info.offset.y > 100) {
+                  setShowDetails(false);
+                }
+              }}
+              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl max-h-[85vh] overflow-hidden"
+            >
+              <div className="flex justify-center py-3 cursor-grab active:cursor-grabbing">
+                <div className="w-12 h-1.5 bg-gray-300 rounded-full"></div>
+              </div>
+              
+              <div className="px-6 pb-8 overflow-y-auto max-h-[75vh]">
+                <div className="flex items-center space-x-4 mb-6">
+                  <div className="w-16 h-16 bg-white rounded-2xl shadow-lg flex items-center justify-center text-3xl">
+                    {currentCampaign.brandLogo}
+                  </div>
+                  <div className="flex-1">
+                    <h2 className="text-2xl font-bold">{currentCampaign.brandName}</h2>
+                    <p className="text-gray-500">{currentCampaign.category}</p>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-purple-600">{currentCampaign.matchScore}%</div>
+                    <div className="text-xs text-gray-500">매치율</div>
+                  </div>
+                </div>
+
+                <div className="mb-6">
+                  <h3 className="text-xl font-bold mb-3">{currentCampaign.title}</h3>
+                  <p className="text-gray-600 leading-relaxed">{currentCampaign.description}</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  <div className="bg-purple-50 rounded-xl p-4">
+                    <DollarSign className="w-5 h-5 text-purple-600 mb-2" />
+                    <p className="text-xs text-gray-600 mb-1">캠페인 예산</p>
+                    <p className="text-lg font-bold">₩{currentCampaign.budget.toLocaleString()}</p>
+                  </div>
+                  <div className="bg-blue-50 rounded-xl p-4">
+                    <Users className="w-5 h-5 text-blue-600 mb-2" />
+                    <p className="text-xs text-gray-600 mb-1">예상 도달</p>
+                    <p className="text-lg font-bold">{currentCampaign.estimatedReach.toLocaleString()}명</p>
+                  </div>
+                  <div className="bg-green-50 rounded-xl p-4">
+                    <Calendar className="w-5 h-5 text-green-600 mb-2" />
+                    <p className="text-xs text-gray-600 mb-1">캠페인 마감</p>
+                    <p className="text-lg font-bold">{new Date(currentCampaign.deadline).toLocaleDateString()}</p>
+                  </div>
+                  <div className="bg-orange-50 rounded-xl p-4">
+                    <TrendingUp className="w-5 h-5 text-orange-600 mb-2" />
+                    <p className="text-xs text-gray-600 mb-1">예상 수익</p>
+                    <p className="text-lg font-bold">협의 가능</p>
+                  </div>
+                </div>
+
+                <div className="mb-6">
+                  <h4 className="font-bold text-gray-900 mb-3 flex items-center">
+                    <Briefcase className="w-4 h-4 mr-2" />
+                    캠페인 요구사항
+                  </h4>
+                  <div className="space-y-2">
+                    {currentCampaign.requirements.map((req, idx) => (
+                      <div key={idx} className="flex items-center space-x-2 bg-gray-50 rounded-lg p-3">
+                        <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                        <span className="text-sm">{req}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mb-6">
+                  <h4 className="font-bold text-gray-900 mb-3">진행 플랫폼</h4>
+                  <div className="flex space-x-3">
+                    {currentCampaign.platform?.includes('instagram') && (
+                      <div className="flex items-center space-x-2 bg-pink-50 px-4 py-2 rounded-lg">
+                        <Instagram className="w-4 h-4 text-pink-600" />
+                        <span className="text-sm">Instagram</span>
+                      </div>
+                    )}
+                    {currentCampaign.platform?.includes('youtube') && (
+                      <div className="flex items-center space-x-2 bg-red-50 px-4 py-2 rounded-lg">
+                        <Youtube className="w-4 h-4 text-red-600" />
+                        <span className="text-sm">YouTube</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mb-6">
+                  <h4 className="font-bold text-gray-900 mb-3">관련 태그</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {currentCampaign.tags.map((tag, idx) => (
+                      <span key={idx} className="px-3 py-1 bg-purple-100 text-purple-700 text-sm rounded-full">
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex space-x-3 pt-4 border-t">
+                  <button
+                    onClick={() => {
+                      setShowDetails(false);
+                      handleSwipe('left');
+                    }}
+                    className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium"
+                  >
+                    다음에 하기
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowDetails(false);
+                      handleSwipe('right');
+                    }}
+                    className="flex-1 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-medium"
+                  >
+                    지원하기
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

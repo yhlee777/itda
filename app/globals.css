@@ -263,3 +263,23 @@ img {
 .animate-slide-in {
   animation: slide-in 0.3s ease-out;
 }
+/* 스크롤바 숨기기 */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* 모바일 세이프 영역 */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .fixed {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* 버튼 그림자 강화 */
+.shadow-2xl {
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
