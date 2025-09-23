@@ -1,6 +1,7 @@
 // lib/matching/realtime-matching-algorithm.ts
 import { createClient } from '@/lib/supabase/client';
-import type { Database } from '@/types/supabase';
+import type { Database } from '@/types/database.types';
+import { hasAdvertiser, safeString, safeArray, safeNumber } from '@/utils/type-guards';
 
 type Tables = Database['public']['Tables'];
 type Campaign = Tables['campaigns']['Row'];

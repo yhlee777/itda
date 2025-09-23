@@ -4,6 +4,7 @@
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'react-hot-toast';
 import type { Campaign, Influencer } from '@/types/helpers'; // ✅ 수정된 import
+import { hasAdvertiser, safeString, safeArray, safeNumber } from '@/utils/type-guards';
 
 /**
  * 인플루언서 스와이프 액션 (타입 안전성 개선)

@@ -13,7 +13,8 @@ import { createClient } from '@/lib/supabase/client';
 import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation'; // 추가된 import
 import { createChatOnAccept } from '@/lib/campaign/actions'; // 추가된 import
-import type { Database } from '@/types/supabase';
+import type { Database } from '@/types/database.types';
+import { hasAdvertiser, safeString, safeArray, safeNumber } from '@/utils/type-guards';
 
 // Supabase 타입
 type Tables = Database['public']['Tables'];

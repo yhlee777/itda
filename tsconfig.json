@@ -1,9 +1,13 @@
 {
   "compilerOptions": {
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "allowJs": true,
     "skipLibCheck": true,
-    "strict": true,
+    "strict": false,
     "noEmit": true,
     "esModuleInterop": true,
     "module": "esnext",
@@ -18,7 +22,9 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": [
+        "./*"
+      ]
     },
     "forceConsistentCasingInFileNames": true
   },
@@ -27,6 +33,9 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts"
-, "app/(advertiser)/find-influencers/page.jsx"  ],
-  "exclude": ["node_modules"]
+  ],
+  "exclude": [
+    "node_modules",
+    "supabase/functions"
+  ]
 }

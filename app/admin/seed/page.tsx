@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'react-hot-toast';
 import { Database, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
+import { hasAdvertiser, safeString, safeArray, safeNumber } from '@/utils/type-guards';
 
 export default function SeedPage() {
   const [isSeeding, setIsSeeding] = useState(false);

@@ -14,6 +14,7 @@ import { format, formatDistanceToNow } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { createClient } from '@/lib/supabase/client';
 import type { Database } from '@/types/database.types';
+import { hasAdvertiser, safeString, safeArray, safeNumber } from '@/utils/type-guards';
 
 // Supabase 타입 가져오기
 type Tables = Database['public']['Tables'];

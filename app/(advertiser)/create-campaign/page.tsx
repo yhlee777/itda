@@ -15,6 +15,7 @@ import {
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'react-hot-toast';
 import { format, addDays } from 'date-fns';
+import { hasAdvertiser, safeString, safeArray, safeNumber } from '@/utils/type-guards';
 
 interface Deliverable {
   type: string;

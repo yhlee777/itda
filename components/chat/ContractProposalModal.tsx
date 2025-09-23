@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase/client';
 import { toast } from 'react-hot-toast';
 import { format, addDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
+import { hasAdvertiser, safeString, safeArray, safeNumber } from '@/utils/type-guards';
 
 interface ContractProposalModalProps {
   isOpen: boolean;

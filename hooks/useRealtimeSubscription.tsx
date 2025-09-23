@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { toast } from 'react-hot-toast';
+import { hasAdvertiser, safeString, safeArray, safeNumber } from '@/utils/type-guards';
 
 // 실시간 이벤트 타입
 type RealtimeEvent = 

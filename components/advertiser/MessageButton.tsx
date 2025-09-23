@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { MessageCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'react-hot-toast';
+import { hasAdvertiser, safeString, safeArray, safeNumber } from '@/utils/type-guards';
 
 interface MessageButtonProps {
   influencerId: string;

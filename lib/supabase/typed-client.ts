@@ -1,22 +1,13 @@
 // lib/supabase/typed-client.ts
-// 타입 안전한 Supabase 클라이언트와 헬퍼 함수들
-
 import { createBrowserClient } from '@supabase/ssr'
 import type { Database } from '@/types/database.types'
-import type { 
-  Campaign, 
-  Influencer, 
-  Advertiser, 
-  User,
-  InsertCampaignInfluencer,
-  InsertSwipeHistory,
-  InsertNotification,
-  InsertChatRoom
-} from '@/types/helpers'
 
-// ========================================
-// 타입 안전한 Supabase 클라이언트 생성
-// ========================================
+type Tables = Database['public']['Tables']
+type User = Tables['users']['Row']
+type Influencer = Tables['influencers']['Row']
+type Advertiser = Tables['advertisers']['Row']
+type Campaign = Tables['campaigns']['Row']
+
 export function createTypedClient() {
   return createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -24,16 +15,9 @@ export function createTypedClient() {
   )
 }
 
-// ========================================
-// 타입 안전한 데이터베이스 클래스
-// ========================================
 export class TypedSupabase {
   private client = createTypedClient()
 
-  // ----------------------------------------
-  // 사용자 관련 메서드
-  // ----------------------------------------
-  
   async getUser(userId: string): Promise<User | null> {
     const { data, error } = await this.client
       .from('users')
@@ -79,10 +63,6 @@ export class TypedSupabase {
     return data
   }
 
-  // ----------------------------------------
-  // 캠페인 관련 메서드
-  // ----------------------------------------
-  
   async getCampaign(campaignId: string): Promise<Campaign | null> {
     const { data, error } = await this.client
       .from('campaigns')
@@ -114,188 +94,107 @@ export class TypedSupabase {
     return data || []
   }
 
-  // ----------------------------------------
-  // 스와이프 액션 (핵심 기능!)
-  // ----------------------------------------
-  
-  async saveSwipeAction(
-    campaignId: string,
-    influencerId: string,
-    action: 'like' | 'pass' | 'super_like',
-    matchScore?: number
-  ): Promise<{ success: boolean; error?: string }> {
-    try {
-      // 1. 스와이프 히스토리 저장
-      const swipeData: InsertSwipeHistory = {
-        campaign_id: campaignId,
-        influencer_id: influencerId,
-        action: action,
-        match_score: matchScore || null,
-        category_match: true
-      }
-
-      const { error: swipeError } = await this.client
-        .from('swipe_history')
-        .insert(swipeData)
-
-      if (swipeError) throw swipeError
-
-      // 2. 좋아요/슈퍼라이크인 경우 지원 처리
-      if (action === 'like' || action === 'super_like') {
-        // 중복 체크
-        const { data: existing } = await this.client
-          .from('campaign_influencers')
-          .select('id')
-          .eq('campaign_id', campaignId)
-          .eq('influencer_id', influencerId)
-          .single()
-
-        if (existing) {
-          return { success: false, error: 'Already applied' }
-        }
-
-        // 지원 생성
-        const applicationData: InsertCampaignInfluencer = {
-          campaign_id: campaignId,
-          influencer_id: influencerId,
-          status: 'pending',
-          match_score: matchScore || null
-        }
-
-        const { error: applyError } = await this.client
-          .from('campaign_influencers')
-          .insert(applicationData)
-
-        if (applyError) throw applyError
-
-        // 3. 캠페인 정보 가져오기 (advertiser_id null 체크!)
-        const campaign = await this.getCampaign(campaignId)
-        
-        // ⚠️ 중요: advertiser_id null 체크
-        if (campaign?.advertiser_id) {
-          await this.createNotification(
-            campaign.advertiser_id,
-            'new_applicant',
-            action === 'super_like' ? '⭐ 슈퍼 지원자!' : '새 지원자',
-            `${campaign.name} 캠페인에 새 지원자가 있습니다`,
-            {
-              campaign_id: campaignId,
-              influencer_id: influencerId,
-              is_super_like: action === 'super_like'
-            }
-          )
-        }
-      }
-
-      return { success: true }
-      
-    } catch (error: any) {
-      console.error('Save swipe error:', error)
-      return { success: false, error: error.message }
-    }
-  }
-
-  // ----------------------------------------
-  // 알림 생성
-  // ----------------------------------------
-  
   async createNotification(
     userId: string,
     type: string,
     title: string,
     message: string,
     metadata?: any
-  ): Promise<void> {
-    try {
-      const notificationData: InsertNotification = {
+  ): Promise<boolean> {
+    const { error } = await this.client
+      .from('notifications')
+      .insert({
         user_id: userId,
         type,
         title,
         message,
-        metadata: metadata || null,
+        metadata,
         is_read: false
-      }
-
-      await this.client
-        .from('notifications')
-        .insert(notificationData)
-        
-    } catch (error) {
+      })
+    
+    if (error) {
       console.error('Notification creation error:', error)
+      return false
     }
+
+    return true
   }
 
-  // ----------------------------------------
-  // 채팅방 생성
-  // ----------------------------------------
-  
-  async createChatRoom(
-    campaignId: string,
-    advertiserId: string,
-    influencerId: string
-  ): Promise<string | null> {
-    try {
-      // 기존 채팅방 체크
-      const { data: existing } = await this.client
-        .from('chat_rooms')
-        .select('id')
-        .eq('campaign_id', campaignId)
-        .eq('advertiser_id', advertiserId)
-        .eq('influencer_id', influencerId)
-        .single()
+  async checkDailySwipeLimit(userId: string): Promise<{
+    remaining: number;
+    resetAt: Date;
+  }> {
+    const influencer = await this.getInfluencer(userId)
+    
+    if (!influencer) {
+      return { remaining: 0, resetAt: new Date() }
+    }
 
-      if (existing) return existing.id
+    const lastSwipe = influencer.last_swipe_at 
+      ? new Date(influencer.last_swipe_at) 
+      : null
 
-      // 새 채팅방 생성
-      const chatRoomData: InsertChatRoom = {
-        campaign_id: campaignId,
-        advertiser_id: advertiserId,
-        influencer_id: influencerId,
-        status: 'active',
-        unread_advertiser: 0,
-        unread_influencer: 0
-      }
-
-      const { data, error } = await this.client
-        .from('chat_rooms')
-        .insert(chatRoomData)
-        .select()
-        .single()
-
-      if (error) throw error
-
-      return data?.id || null
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    
+    if (!lastSwipe || lastSwipe < today) {
+      await this.client
+        .from('influencers')
+        .update({ 
+          daily_swipes_count: 0,
+          last_swipe_at: now.toISOString()
+        })
+        .eq('id', userId)
       
-    } catch (error) {
-      console.error('Chat room creation error:', error)
-      return null
+      return {
+        remaining: influencer.daily_swipes_limit || 100,
+        resetAt: new Date(today.getTime() + 24 * 60 * 60 * 1000)
+      }
     }
+
+    const remaining = (influencer.daily_swipes_limit || 100) - (influencer.daily_swipes_count || 0)
+    const resetAt = new Date(today.getTime() + 24 * 60 * 60 * 1000)
+
+    return { remaining: Math.max(0, remaining), resetAt }
   }
 
-  // ----------------------------------------
-  // 통계 업데이트
-  // ----------------------------------------
-  
-  async updateCampaignStats(
-    campaignId: string,
-    field: 'view_count' | 'like_count' | 'application_count'
-  ): Promise<void> {
-    try {
-      const { data: campaign } = await this.client
-        .from('campaigns')
-        .select(field)
-        .eq('id', campaignId)
-        .single()
+  calculateMatchScore(
+    campaign: Campaign,
+    influencer: Influencer
+  ): number {
+    let score = 50
 
-      if (campaign) {
-        const currentValue = campaign[field] || 0
-        await this.client
-          .from('campaigns')
-          .update({ [field]: currentValue + 1 })
-          .eq('id', campaignId)
-      }
-    } catch (error) {
-      console.error('Stats update error:', error)
+    const campaignCategories = campaign.categories || []
+    const influencerCategories = influencer.categories || []
+    
+    const matchingCategories = campaignCategories.filter(cat =>
+      influencerCategories.includes(cat)
+    )
+    
+    if (matchingCategories.length > 0) {
+      score += matchingCategories.length * 10
     }
+
+    if (campaign.min_followers && influencer.followers_count >= campaign.min_followers) {
+      score += 10
+    }
+
+    if (campaign.min_engagement_rate && influencer.engagement_rate >= campaign.min_engagement_rate) {
+      score += 15
+    }
+
+    if (influencer.is_verified) {
+      score += 5
+    }
+
+    const tierBonus: Record<string, number> = {
+      'bronze': 0,
+      'silver': 5,
+      'gold': 10,
+      'platinum': 15
+    }
+    score += tierBonus[influencer.tier || 'bronze'] || 0
+
+    return Math.min(100, score)
   }
 }

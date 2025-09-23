@@ -13,7 +13,10 @@
     "db:push": "supabase db push",
     "db:reset": "supabase db reset",
     "functions:deploy": "supabase functions deploy",
-    "icons:generate": "node scripts/generate-icons.js"
+    "icons:generate": "node scripts/generate-icons.js",
+    "type-check:watch": "tsc --noEmit --watch",
+    "lint:types": "tsc --noEmit && next lint",
+    "fix:types": "node fix-all-types.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.63.0",

@@ -2,6 +2,7 @@
 // 캠페인 데이터 시딩 스크립트
 
 import { createClient } from '@/lib/supabase/client';
+import { hasAdvertiser, safeString, safeArray, safeNumber } from '@/utils/type-guards';
 
 export async function seedCampaigns() {
   const supabase = createClient();

@@ -8,6 +8,7 @@ import {
   getAIMatchScore 
 } from '@/lib/matching/realtime-matching-algorithm';
 import { toast } from 'react-hot-toast';
+import { hasAdvertiser, safeString, safeArray, safeNumber } from '@/utils/type-guards';
 
 // ============================================
 // 인플루언서용 매칭 Hook - 수정된 버전

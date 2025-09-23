@@ -55,95 +55,177 @@ export type UpdateChatRoom = Updates<'chat_rooms'>
 export type UpdateMessage = Updates<'messages'>
 
 // ========================================
-// 유용한 유니온 타입들
+// 복합 타입 (Join된 데이터)
 // ========================================
-export type UserType = 'influencer' | 'advertiser' | 'admin'
-export type CampaignStatus = 'draft' | 'active' | 'matching' | 'in_progress' | 'completed' | 'cancelled'
-export type ApplicationStatus = 'pending' | 'accepted' | 'rejected' | 'in_progress' | 'completed'
-export type SwipeAction = 'like' | 'pass' | 'super_like'
-export type ChatStatus = 'active' | 'archived' | 'blocked'
-export type SenderType = 'influencer' | 'advertiser' | 'system'
-export type InfluencerTier = 'bronze' | 'silver' | 'gold' | 'platinum'
-export type CampaignUrgency = 'high' | 'medium' | 'low'
-
-// ========================================
-// 커스텀 인터페이스 (자주 사용하는 조합)
-// ========================================
-
-// 캠페인 with 광고주 정보
 export interface CampaignWithAdvertiser extends Campaign {
   advertiser?: Advertiser
 }
 
-// 인플루언서 with 사용자 정보
-export interface InfluencerWithUser extends Influencer {
-  user?: User
-}
-
-// 지원 with 인플루언서 정보
-export interface ApplicationWithInfluencer extends CampaignInfluencer {
+export interface CampaignInfluencerWithDetails extends CampaignInfluencer {
+  campaign?: Campaign
   influencer?: Influencer
 }
 
-// 채팅방 with 관계 정보
-export interface ChatRoomWithRelations extends ChatRoom {
-  campaign?: Campaign
+export interface ChatRoomWithParticipants extends ChatRoom {
   advertiser?: Advertiser
   influencer?: Influencer
-  last_message_content?: string
-  last_message_time?: string
+  campaign?: Campaign
 }
 
-// 메시지 with 발신자 정보
 export interface MessageWithSender extends Message {
-  sender?: {
-    id: string
-    name: string
-    avatar: string | null
-    type: SenderType
-  }
+  sender?: User
 }
 
 // ========================================
-// API 응답 타입들
+// 뷰 모델 타입
 // ========================================
+export interface ApplicationViewModel {
+  id: string
+  campaign_id: string
+  campaign_name: string
+  campaign_image?: string
+  brand_name: string
+  brand_logo?: string
+  status: 'pending' | 'accepted' | 'rejected' | 'withdrawn'
+  proposed_price: number
+  cover_letter?: string
+  applied_at: Date
+  reviewed_at?: Date
+  decided_at?: Date
+  rejection_reason?: string
+  campaign_end_date: Date
+  campaign_budget: number
+  campaign_category: string
+  match_score?: number
+}
 
+export interface ApplicantViewModel {
+  id: string
+  campaign_id: string
+  campaign_name: string
+  influencer_id: string
+  influencer_name: string
+  influencer_avatar?: string
+  followers_count: number
+  engagement_rate: number
+  categories: string[]
+  tier: string
+  verified: boolean
+  status: 'pending' | 'accepted' | 'rejected' | 'withdrawn'
+  proposed_price: number
+  cover_letter?: string
+  portfolio_links?: string[]
+  match_score: number
+  ai_recommendation?: string
+  risk_level: 'low' | 'medium' | 'high'
+  estimated_roi: number
+  applied_at: Date
+  hours_since_applied: number
+}
+
+// ========================================
+// API 응답 타입
+// ========================================
 export interface ApiResponse<T> {
-  data: T | null
-  error: string | null
   success: boolean
+  data?: T
+  error?: {
+    code: string
+    message: string
+    details?: any
+  }
+  meta?: {
+    total?: number
+    page?: number
+    limit?: number
+  }
 }
 
 export interface PaginatedResponse<T> {
   data: T[]
   total: number
   page: number
-  pageSize: number
+  limit: number
   hasMore: boolean
 }
 
 // ========================================
-// 폼 데이터 타입들
+// 필터 및 쿼리 타입
 // ========================================
-
-export interface LoginFormData {
-  email: string
-  password: string
+export interface CampaignFilters {
+  category?: string
+  minBudget?: number
+  maxBudget?: number
+  platform?: string[]
+  urgency?: 'low' | 'medium' | 'high'
+  status?: 'draft' | 'active' | 'paused' | 'completed'
 }
 
-export interface RegisterFormData {
-  email: string
-  password: string
-  userType: UserType
+export interface InfluencerFilters {
+  categories?: string[]
+  minFollowers?: number
+  maxFollowers?: number
+  minEngagement?: number
+  tier?: 'bronze' | 'silver' | 'gold' | 'platinum'
+  verified?: boolean
 }
 
-export interface CampaignFormData {
-  name: string
-  description: string
-  budget: number
-  categories: string[]
-  start_date: string
-  end_date: string
-  min_followers: number
-  min_engagement_rate: number
+// ========================================
+// 통계 타입
+// ========================================
+export interface CampaignStats {
+  total_applicants: number
+  pending_applicants: number
+  accepted_applicants: number
+  rejected_applicants: number
+  avg_response_time: number
+  avg_match_score: number
+  estimated_reach: number
+  estimated_engagement: number
+}
+
+export interface InfluencerStats {
+  total_campaigns: number
+  completed_campaigns: number
+  avg_rating: number
+  total_earnings: number
+  success_rate: number
+}
+
+// ========================================
+// 실시간 업데이트 타입
+// ========================================
+export interface RealtimePayload<T = any> {
+  event: 'INSERT' | 'UPDATE' | 'DELETE'
+  type: 'broadcast' | 'presence' | 'postgres_changes'
+  new?: T
+  old?: T
+}
+
+// ========================================
+// 에러 타입
+// ========================================
+export class AppError extends Error {
+  constructor(
+    public code: string,
+    message: string,
+    public details?: any
+  ) {
+    super(message)
+    this.name = 'AppError'
+  }
+}
+
+export class ValidationError extends AppError {
+  constructor(message: string, details?: any) {
+    super('VALIDATION_ERROR', message, details)
+    this.name = 'ValidationError'
+  }
+}
+
+export class AuthError extends AppError {
+  constructor(message: string, details?: any) {
+    super('AUTH_ERROR', message, details)
+    this.name = 'AuthError'
+  }
 }

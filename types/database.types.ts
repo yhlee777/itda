@@ -1,5 +1,5 @@
 // types/database.types.ts
-// Supabase 데이터베이스 타입 정의 (완전한 버전)
+// 자동 생성된 Supabase 타입
 
 export type Json =
   | string
@@ -12,7 +12,6 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
-      // users 테이블
       users: {
         Row: {
           id: string
@@ -40,7 +39,6 @@ export interface Database {
         }
       }
 
-      // influencers 테이블
       influencers: {
         Row: {
           id: string
@@ -122,91 +120,70 @@ export interface Database {
         }
       }
 
-      // advertisers 테이블
       advertisers: {
         Row: {
           id: string
           company_name: string
-          business_registration: string
-          contact_name: string
-          contact_position: string
+          company_logo: string | null
+          business_registration: string | null
+          contact_name: string | null
+          contact_position: string | null
           contact_phone: string | null
           website: string | null
           industry: string | null
-          marketing_budget: string | null
-          company_logo: string | null
-          description: string | null
+          marketing_budget: number | null
           is_verified: boolean
-          verified_at: string | null
-          verified_by: string | null
-          rejection_reason: string | null
           created_at: string
           updated_at: string
         }
         Insert: {
           id: string
           company_name: string
-          business_registration: string
-          contact_name: string
-          contact_position: string
+          company_logo?: string | null
+          business_registration?: string | null
+          contact_name?: string | null
+          contact_position?: string | null
           contact_phone?: string | null
           website?: string | null
           industry?: string | null
-          marketing_budget?: string | null
-          company_logo?: string | null
-          description?: string | null
+          marketing_budget?: number | null
           is_verified?: boolean
-          verified_at?: string | null
-          verified_by?: string | null
-          rejection_reason?: string | null
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
           company_name?: string
-          business_registration?: string
-          contact_name?: string
-          contact_position?: string
+          company_logo?: string | null
+          business_registration?: string | null
+          contact_name?: string | null
+          contact_position?: string | null
           contact_phone?: string | null
           website?: string | null
           industry?: string | null
-          marketing_budget?: string | null
-          company_logo?: string | null
-          description?: string | null
+          marketing_budget?: number | null
           is_verified?: boolean
-          verified_at?: string | null
-          verified_by?: string | null
-          rejection_reason?: string | null
           created_at?: string
           updated_at?: string
         }
       }
 
-      // campaigns 테이블 (⚠️ advertiser_id가 null 가능!)
       campaigns: {
         Row: {
           id: string
-          advertiser_id: string | null  // ⚠️ null 가능!
+          advertiser_id: string | null
           name: string
           description: string | null
-          objectives: string[] | null
           categories: string[] | null
           budget: number
-          spent: number
           start_date: string
           end_date: string
-          target_audience: Json | null
-          min_followers: number
-          min_engagement_rate: number
-          deliverables: Json | null
           requirements: string[] | null
-          status: 'draft' | 'active' | 'matching' | 'in_progress' | 'completed' | 'cancelled'
-          view_count: number
-          like_count: number
-          application_count: number
+          min_followers: number | null
+          min_engagement_rate: number | null
+          status: 'draft' | 'active' | 'paused' | 'completed' | 'cancelled'
+          urgency: 'low' | 'medium' | 'high'
           is_premium: boolean
-          urgency: 'high' | 'medium' | 'low' | null
           metadata: Json | null
           created_at: string
           updated_at: string
@@ -216,23 +193,16 @@ export interface Database {
           advertiser_id?: string | null
           name: string
           description?: string | null
-          objectives?: string[] | null
           categories?: string[] | null
           budget: number
-          spent?: number
           start_date: string
           end_date: string
-          target_audience?: Json | null
-          min_followers?: number
-          min_engagement_rate?: number
-          deliverables?: Json | null
           requirements?: string[] | null
-          status?: 'draft' | 'active' | 'matching' | 'in_progress' | 'completed' | 'cancelled'
-          view_count?: number
-          like_count?: number
-          application_count?: number
+          min_followers?: number | null
+          min_engagement_rate?: number | null
+          status?: 'draft' | 'active' | 'paused' | 'completed' | 'cancelled'
+          urgency?: 'low' | 'medium' | 'high'
           is_premium?: boolean
-          urgency?: 'high' | 'medium' | 'low' | null
           metadata?: Json | null
           created_at?: string
           updated_at?: string
@@ -242,40 +212,32 @@ export interface Database {
           advertiser_id?: string | null
           name?: string
           description?: string | null
-          objectives?: string[] | null
           categories?: string[] | null
           budget?: number
-          spent?: number
           start_date?: string
           end_date?: string
-          target_audience?: Json | null
-          min_followers?: number
-          min_engagement_rate?: number
-          deliverables?: Json | null
           requirements?: string[] | null
-          status?: 'draft' | 'active' | 'matching' | 'in_progress' | 'completed' | 'cancelled'
-          view_count?: number
-          like_count?: number
-          application_count?: number
+          min_followers?: number | null
+          min_engagement_rate?: number | null
+          status?: 'draft' | 'active' | 'paused' | 'completed' | 'cancelled'
+          urgency?: 'low' | 'medium' | 'high'
           is_premium?: boolean
-          urgency?: 'high' | 'medium' | 'low' | null
           metadata?: Json | null
           created_at?: string
           updated_at?: string
         }
       }
 
-      // campaign_influencers 테이블
       campaign_influencers: {
         Row: {
           id: string
           campaign_id: string
           influencer_id: string
-          match_score: number | null
-          match_details: Json | null
           status: 'pending' | 'accepted' | 'rejected' | 'in_progress' | 'completed'
           agreed_price: number | null
           deliverables: Json | null
+          match_score: number | null
+          match_details: Json | null
           matched_at: string
           accepted_at: string | null
           started_at: string | null
@@ -289,11 +251,11 @@ export interface Database {
           id?: string
           campaign_id: string
           influencer_id: string
-          match_score?: number | null
-          match_details?: Json | null
           status?: 'pending' | 'accepted' | 'rejected' | 'in_progress' | 'completed'
           agreed_price?: number | null
           deliverables?: Json | null
+          match_score?: number | null
+          match_details?: Json | null
           matched_at?: string
           accepted_at?: string | null
           started_at?: string | null
@@ -307,11 +269,11 @@ export interface Database {
           id?: string
           campaign_id?: string
           influencer_id?: string
-          match_score?: number | null
-          match_details?: Json | null
           status?: 'pending' | 'accepted' | 'rejected' | 'in_progress' | 'completed'
           agreed_price?: number | null
           deliverables?: Json | null
+          match_score?: number | null
+          match_details?: Json | null
           matched_at?: string
           accepted_at?: string | null
           started_at?: string | null
@@ -323,69 +285,6 @@ export interface Database {
         }
       }
 
-      // swipe_history 테이블
-      swipe_history: {
-        Row: {
-          id: string
-          influencer_id: string
-          campaign_id: string
-          action: 'like' | 'pass' | 'super_like'
-          match_score: number | null
-          category_match: boolean
-          swiped_at: string
-        }
-        Insert: {
-          id?: string
-          influencer_id: string
-          campaign_id: string
-          action: 'like' | 'pass' | 'super_like'
-          match_score?: number | null
-          category_match?: boolean
-          swiped_at?: string
-        }
-        Update: {
-          id?: string
-          influencer_id?: string
-          campaign_id?: string
-          action?: 'like' | 'pass' | 'super_like'
-          match_score?: number | null
-          category_match?: boolean
-          swiped_at?: string
-        }
-      }
-
-      // campaign_queue 테이블
-      campaign_queue: {
-        Row: {
-          id: string
-          influencer_id: string
-          campaign_id: string
-          queue_order: number
-          category_priority: number
-          added_at: string
-          expires_at: string
-        }
-        Insert: {
-          id?: string
-          influencer_id: string
-          campaign_id: string
-          queue_order: number
-          category_priority?: number
-          added_at?: string
-          expires_at?: string
-        }
-        Update: {
-          id?: string
-          influencer_id?: string
-          campaign_id?: string
-          queue_order?: number
-          category_priority?: number
-          added_at?: string
-          expires_at?: string
-        }
-      }
-
-      // notifications 테이블
       notifications: {
         Row: {
           id: string
@@ -396,9 +295,6 @@ export interface Database {
           metadata: Json | null
           is_read: boolean
           read_at: string | null
-          priority: string | null
-          action_url: string | null
-          expires_at: string | null
           created_at: string
         }
         Insert: {
@@ -410,9 +306,6 @@ export interface Database {
           metadata?: Json | null
           is_read?: boolean
           read_at?: string | null
-          priority?: string | null
-          action_url?: string | null
-          expires_at?: string | null
           created_at?: string
         }
         Update: {
@@ -424,99 +317,103 @@ export interface Database {
           metadata?: Json | null
           is_read?: boolean
           read_at?: string | null
-          priority?: string | null
-          action_url?: string | null
-          expires_at?: string | null
           created_at?: string
         }
       }
 
-      // chat_rooms 테이블
+      swipe_history: {
+        Row: {
+          id: string
+          influencer_id: string | null
+          campaign_id: string | null
+          action: 'like' | 'pass' | 'super_like'
+          match_score: number | null
+          category_match: boolean | null
+          swiped_at: string
+        }
+        Insert: {
+          id?: string
+          influencer_id?: string | null
+          campaign_id?: string | null
+          action: 'like' | 'pass' | 'super_like'
+          match_score?: number | null
+          category_match?: boolean | null
+          swiped_at?: string
+        }
+        Update: {
+          id?: string
+          influencer_id?: string | null
+          campaign_id?: string | null
+          action?: 'like' | 'pass' | 'super_like'
+          match_score?: number | null
+          category_match?: boolean | null
+          swiped_at?: string
+        }
+      }
+
       chat_rooms: {
         Row: {
           id: string
-          campaign_id: string
-          advertiser_id: string
-          influencer_id: string
-          status: 'active' | 'archived' | 'blocked'
-          contract_status: string | null
+          campaign_id: string | null
+          advertiser_id: string | null
+          influencer_id: string | null
+          status: string | null
           last_message: string | null
           last_message_at: string | null
-          unread_advertiser: number
-          unread_influencer: number
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
-          campaign_id: string
-          advertiser_id: string
-          influencer_id: string
-          status?: 'active' | 'archived' | 'blocked'
-          contract_status?: string | null
+          campaign_id?: string | null
+          advertiser_id?: string | null
+          influencer_id?: string | null
+          status?: string | null
           last_message?: string | null
           last_message_at?: string | null
-          unread_advertiser?: number
-          unread_influencer?: number
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
-          campaign_id?: string
-          advertiser_id?: string
-          influencer_id?: string
-          status?: 'active' | 'archived' | 'blocked'
-          contract_status?: string | null
+          campaign_id?: string | null
+          advertiser_id?: string | null
+          influencer_id?: string | null
+          status?: string | null
           last_message?: string | null
           last_message_at?: string | null
-          unread_advertiser?: number
-          unread_influencer?: number
           created_at?: string
           updated_at?: string
         }
       }
 
-      // messages 테이블
       messages: {
         Row: {
           id: string
-          chat_room_id: string
+          room_id: string
           sender_id: string
-          sender_type: 'influencer' | 'advertiser' | 'system' | null
-          content: string
-          message_type: string | null
+          message: string
           attachments: Json | null
-          is_edited: boolean
-          is_deleted: boolean
           is_read: boolean
           read_at: string | null
           created_at: string
         }
         Insert: {
           id?: string
-          chat_room_id: string
+          room_id: string
           sender_id: string
-          sender_type?: 'influencer' | 'advertiser' | 'system' | null
-          content: string
-          message_type?: string | null
+          message: string
           attachments?: Json | null
-          is_edited?: boolean
-          is_deleted?: boolean
           is_read?: boolean
           read_at?: string | null
           created_at?: string
         }
         Update: {
           id?: string
-          chat_room_id?: string
+          room_id?: string
           sender_id?: string
-          sender_type?: 'influencer' | 'advertiser' | 'system' | null
-          content?: string
-          message_type?: string | null
+          message?: string
           attachments?: Json | null
-          is_edited?: boolean
-          is_deleted?: boolean
           is_read?: boolean
           read_at?: string | null
           created_at?: string
