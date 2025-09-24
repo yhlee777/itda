@@ -171,6 +171,13 @@ export type Database = {
             referencedRelation: "influencers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "campaign_influencers_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "swipe_statistics"
+            referencedColumns: ["influencer_id"]
+          },
         ]
       }
       campaign_queue: {
@@ -218,6 +225,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "influencers"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_queue_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "swipe_statistics"
+            referencedColumns: ["influencer_id"]
           },
         ]
       }
@@ -469,6 +483,13 @@ export type Database = {
             referencedRelation: "influencers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "chat_rooms_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "swipe_statistics"
+            referencedColumns: ["influencer_id"]
+          },
         ]
       }
       chat_templates: {
@@ -625,10 +646,12 @@ export type Database = {
           instagram_username: string | null
           is_verified: boolean | null
           last_swipe_at: string | null
+          last_swipe_date: string | null
           main_platform: string | null
           name: string
           posts_count: number | null
           preferred_categories: string[] | null
+          premium_expires_at: string | null
           status: string | null
           tier: string | null
           tiktok_username: string | null
@@ -664,10 +687,12 @@ export type Database = {
           instagram_username?: string | null
           is_verified?: boolean | null
           last_swipe_at?: string | null
+          last_swipe_date?: string | null
           main_platform?: string | null
           name: string
           posts_count?: number | null
           preferred_categories?: string[] | null
+          premium_expires_at?: string | null
           status?: string | null
           tier?: string | null
           tiktok_username?: string | null
@@ -703,10 +728,12 @@ export type Database = {
           instagram_username?: string | null
           is_verified?: boolean | null
           last_swipe_at?: string | null
+          last_swipe_date?: string | null
           main_platform?: string | null
           name?: string
           posts_count?: number | null
           preferred_categories?: string[] | null
+          premium_expires_at?: string | null
           status?: string | null
           tier?: string | null
           tiktok_username?: string | null
@@ -1127,6 +1154,13 @@ export type Database = {
             referencedRelation: "influencers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "swipe_history_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "swipe_statistics"
+            referencedColumns: ["influencer_id"]
+          },
         ]
       }
       users: {
@@ -1158,7 +1192,28 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      swipe_statistics: {
+        Row: {
+          daily_swipes_count: number | null
+          influencer_id: string | null
+          last_swipe_at: string | null
+          today_swipes: number | null
+          total_likes: number | null
+          total_passes: number | null
+          total_super_likes: number | null
+          total_swipes_count: number | null
+          username: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "influencers_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       create_chat_room_on_match: {
@@ -1229,9 +1284,21 @@ export type Database = {
           website: string
         }[]
       }
+      get_remaining_swipes: {
+        Args: { user_id: string }
+        Returns: number
+      }
+      increment: {
+        Args: { column_name: string; row_id: string; table_name: string }
+        Returns: undefined
+      }
       increment_campaign_stats: {
         Args: { p_campaign_id: string; p_stat_type: string }
         Returns: undefined
+      }
+      is_premium_user: {
+        Args: { user_id: string }
+        Returns: boolean
       }
       reset_daily_swipes: {
         Args: Record<PropertyKey, never>
