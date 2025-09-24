@@ -535,3 +535,413 @@ export function calculateEstimatedPrice(
   // 10만원 단위로 반올림
   return Math.round(estimatedPrice / 100000) * 100000;
 }
+/**
+ * 캠페인 지원 수락 시 채팅방 생성
+ * lib/campaign/actions.ts 파일 맨 아래에 이 함수를 추가하세요
+ */
+export async function createChatOnAccept(
+  campaignId: string,
+  advertiserId: string,
+  influencerId: string
+) {
+  const supabase = createClient();
+
+  try {
+    // 1. 기존 채팅방이 있는지 확인 (any 캐스팅으로 never 타입 에러 방지)
+    const { data: existingRoom, error: checkError } = await (supabase
+      .from('chat_rooms') as any)
+      .select('id')
+      .eq('campaign_id', campaignId)
+      .eq('advertiser_id', advertiserId)
+      .eq('influencer_id', influencerId)
+      .maybeSingle();
+
+    // 테이블이 없는 경우 처리
+    if (checkError && checkError.code === '42P01') {
+      console.error('chat_rooms table does not exist');
+      return { 
+        success: false, 
+        error: 'Chat system not available' 
+      };
+    }
+
+    // 기존 채팅방이 있으면 그것을 반환
+    if (existingRoom) {
+      return { 
+        success: true, 
+        chatRoomId: existingRoom.id,
+        message: '기존 채팅방으로 연결됩니다.',
+        isExisting: true
+      };
+    }
+
+    // 2. 새 채팅방 생성
+    const roomData = {
+      id: crypto.randomUUID ? crypto.randomUUID() : `room-${Date.now()}`,
+      campaign_id: campaignId,
+      advertiser_id: advertiserId,
+      influencer_id: influencerId,
+      status: 'active',
+      created_at: new Date().toISOString(),
+      last_message_at: new Date().toISOString(),
+      unread_count_advertiser: 0,
+      unread_count_influencer: 1, // 광고주가 먼저 메시지를 보낸 것으로 설정
+      metadata: {
+        campaign_accepted: true,
+        accepted_at: new Date().toISOString()
+      }
+    };
+
+    const { data: newRoom, error: roomError } = await (supabase
+      .from('chat_rooms') as any)
+      .insert(roomData)
+      .select('id')
+      .single();
+
+    if (roomError) {
+      // 중복 키 에러인 경우 (race condition)
+      if (roomError.code === '23505') {
+        const { data: retryRoom } = await (supabase
+          .from('chat_rooms') as any)
+          .select('id')
+          .eq('campaign_id', campaignId)
+          .eq('advertiser_id', advertiserId)
+          .eq('influencer_id', influencerId)
+          .single();
+
+        if (retryRoom) {
+          return { 
+            success: true, 
+            chatRoomId: retryRoom.id,
+            message: '채팅방이 생성되었습니다.',
+            isExisting: true
+          };
+        }
+      }
+
+      console.error('채팅방 생성 오류:', roomError);
+      return { 
+        success: false, 
+        error: roomError.message || '채팅방 생성에 실패했습니다'
+      };
+    }
+
+    const chatRoomId = newRoom.id;
+
+    // 3. 초기 환영 메시지 생성
+    const welcomeMessage = {
+      id: crypto.randomUUID ? crypto.randomUUID() : `msg-${Date.now()}`,
+      chat_room_id: chatRoomId,
+      sender_id: advertiserId,
+      sender_type: 'advertiser',
+      message: `안녕하세요! 🎉\n캠페인에 지원해주셔서 감사합니다.\n함께 멋진 콘텐츠를 만들어보시죠!`,
+      created_at: new Date().toISOString(),
+      is_read: false,
+      metadata: {
+        is_system: true,
+        type: 'welcome'
+      }
+    };
+
+    const { error: messageError } = await (supabase
+      .from('messages') as any)
+      .insert(welcomeMessage);
+
+    if (messageError) {
+      console.warn('Welcome message creation failed:', messageError);
+      // 메시지 생성 실패는 critical하지 않으므로 계속 진행
+    }
+
+    // 4. 알림 생성 - 인플루언서에게
+    try {
+      const notificationData = {
+        id: crypto.randomUUID ? crypto.randomUUID() : `notif-${Date.now()}`,
+        user_id: influencerId,
+        user_type: 'influencer',
+        type: 'campaign_accepted',
+        title: '🎉 캠페인 지원이 수락되었습니다!',
+        message: '광고주가 귀하의 지원을 수락했습니다. 채팅을 시작해보세요.',
+        data: {
+          campaign_id: campaignId,
+          chat_room_id: chatRoomId,
+          advertiser_id: advertiserId
+        },
+        is_read: false,
+        created_at: new Date().toISOString()
+      };
+
+      // notification_logs 테이블이 있을 경우
+      await (supabase
+        .from('notification_logs') as any)
+        .insert(notificationData);
+
+    } catch (notifError) {
+      console.warn('Notification creation failed (optional):', notifError);
+    }
+
+    // 5. 채팅 알림 설정 (chat_notifications 테이블)
+    try {
+      const chatNotifData = {
+        id: crypto.randomUUID ? crypto.randomUUID() : `cn-${Date.now()}`,
+        chat_room_id: chatRoomId,
+        user_id: influencerId,
+        enabled: true,
+        sound_enabled: true,
+        created_at: new Date().toISOString()
+      };
+
+      await (supabase
+        .from('chat_notifications') as any)
+        .insert(chatNotifData);
+
+    } catch (chatNotifError) {
+      console.warn('Chat notification setup failed (optional):', chatNotifError);
+    }
+
+    // 6. 캠페인 통계 업데이트 (선택사항)
+    try {
+      const { data: campaign } = await (supabase
+        .from('campaigns') as any)
+        .select('accepted_count')
+        .eq('id', campaignId)
+        .single();
+
+      if (campaign) {
+        await (supabase
+          .from('campaigns') as any)
+          .update({ 
+            accepted_count: (campaign.accepted_count || 0) + 1,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', campaignId);
+      }
+    } catch (statsError) {
+      console.warn('Stats update failed (optional):', statsError);
+    }
+
+    // 성공 응답
+    return { 
+      success: true, 
+      chatRoomId: chatRoomId,
+      message: '채팅방이 생성되었습니다. 이제 대화를 시작할 수 있습니다!',
+      isExisting: false
+    };
+
+  } catch (error: any) {
+    console.error('채팅방 생성 중 오류:', error);
+    
+    // 인증 관련 에러
+    if (error.message?.includes('JWT') || error.code === 'PGRST301') {
+      return {
+        success: false,
+        error: 'auth_error',
+        message: '세션이 만료되었습니다. 다시 로그인해주세요'
+      };
+    }
+
+    return { 
+      success: false, 
+      error: error.message || '채팅방 생성에 실패했습니다',
+      message: '채팅방 생성 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.'
+    };
+  }
+}
+
+/**
+ * 채팅방 목록 가져오기
+ */
+export async function getChatRooms(
+  userId: string,
+  userType: 'advertiser' | 'influencer'
+) {
+  const supabase = createClient();
+
+  try {
+    const filterColumn = userType === 'advertiser' ? 'advertiser_id' : 'influencer_id';
+    
+    const { data, error } = await (supabase
+      .from('chat_rooms') as any)
+      .select(`
+        *,
+        campaigns (
+          id,
+          name,
+          budget,
+          status
+        ),
+        advertisers (
+          id,
+          company_name,
+          company_logo
+        ),
+        influencers (
+          id,
+          name,
+          avatar,
+          followers_count
+        ),
+        messages (
+          id,
+          message,
+          created_at,
+          sender_type
+        )
+      `)
+      .eq(filterColumn, userId)
+      .eq('status', 'active')
+      .order('last_message_at', { ascending: false });
+
+    if (error) {
+      console.error('Failed to fetch chat rooms:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching chat rooms:', error);
+    return [];
+  }
+}
+
+/**
+ * 메시지 전송
+ */
+export async function sendMessage(
+  chatRoomId: string,
+  senderId: string,
+  senderType: 'advertiser' | 'influencer',
+  message: string,
+  attachments?: any[]
+) {
+  const supabase = createClient();
+
+  try {
+    // 1. 메시지 생성
+    const messageData = {
+      id: crypto.randomUUID ? crypto.randomUUID() : `msg-${Date.now()}`,
+      chat_room_id: chatRoomId,
+      sender_id: senderId,
+      sender_type: senderType,
+      message: message,
+      attachments: attachments || null,
+      is_read: false,
+      created_at: new Date().toISOString()
+    };
+
+    const { data: newMessage, error: messageError } = await (supabase
+      .from('messages') as any)
+      .insert(messageData)
+      .select()
+      .single();
+
+    if (messageError) {
+      console.error('Message send error:', messageError);
+      return { success: false, error: messageError.message };
+    }
+
+    // 2. 채팅방 업데이트 (마지막 메시지 시간 및 읽지 않은 수)
+    const unreadColumn = senderType === 'advertiser' 
+      ? 'unread_count_influencer' 
+      : 'unread_count_advertiser';
+
+    const { error: updateError } = await (supabase
+      .from('chat_rooms') as any)
+      .update({ 
+        last_message_at: new Date().toISOString(),
+        [unreadColumn]: (supabase as any).rpc('increment', { x: 1 })
+      })
+      .eq('id', chatRoomId);
+
+    if (updateError) {
+      console.warn('Chat room update failed:', updateError);
+    }
+
+    return { 
+      success: true, 
+      message: newMessage,
+      timestamp: new Date().toISOString()
+    };
+
+  } catch (error: any) {
+    console.error('Send message error:', error);
+    return { 
+      success: false, 
+      error: error.message || '메시지 전송에 실패했습니다' 
+    };
+  }
+}
+
+/**
+ * 채팅방의 메시지 목록 가져오기
+ */
+export async function getChatMessages(
+  chatRoomId: string,
+  limit: number = 50,
+  offset: number = 0
+) {
+  const supabase = createClient();
+
+  try {
+    const { data, error } = await (supabase
+      .from('messages') as any)
+      .select('*')
+      .eq('chat_room_id', chatRoomId)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) {
+      console.error('Failed to fetch messages:', error);
+      return [];
+    }
+
+    // 오래된 순서로 정렬해서 반환 (채팅 UI용)
+    return (data || []).reverse();
+  } catch (error) {
+    console.error('Error fetching messages:', error);
+    return [];
+  }
+}
+
+/**
+ * 메시지 읽음 처리
+ */
+export async function markMessagesAsRead(
+  chatRoomId: string,
+  userId: string,
+  userType: 'advertiser' | 'influencer'
+) {
+  const supabase = createClient();
+
+  try {
+    // 1. 상대방이 보낸 메시지를 읽음 처리
+    const { error: readError } = await (supabase
+      .from('messages') as any)
+      .update({ is_read: true })
+      .eq('chat_room_id', chatRoomId)
+      .neq('sender_type', userType)
+      .eq('is_read', false);
+
+    if (readError) {
+      console.warn('Mark as read failed:', readError);
+    }
+
+    // 2. 채팅방의 읽지 않은 카운트 리셋
+    const unreadColumn = userType === 'advertiser' 
+      ? 'unread_count_advertiser' 
+      : 'unread_count_influencer';
+
+    const { error: resetError } = await (supabase
+      .from('chat_rooms') as any)
+      .update({ [unreadColumn]: 0 })
+      .eq('id', chatRoomId);
+
+    if (resetError) {
+      console.warn('Reset unread count failed:', resetError);
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error marking messages as read:', error);
+    return { success: false };
+  }
+}
