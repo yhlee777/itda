@@ -1,3 +1,4 @@
+"use client";
 // app/(chat)/chat/[roomId]/page.tsx
 'use client';
 

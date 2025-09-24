@@ -1,3 +1,4 @@
+"use client";
 // app/(advertiser)/advertiser-applications/page.tsx
 'use client';
 

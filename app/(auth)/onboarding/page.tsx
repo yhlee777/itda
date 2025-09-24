@@ -1,3 +1,4 @@
+"use client";
 // app/(auth)/onboarding/page.tsx
 'use client';
 

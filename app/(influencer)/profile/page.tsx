@@ -1,3 +1,4 @@
+"use client";
 // app/(influencer)/profile/page.tsx
 // 이 파일을 완전히 교체해주세요!
 

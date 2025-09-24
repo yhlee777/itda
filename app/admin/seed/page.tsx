@@ -1,3 +1,4 @@
+"use client";
 // app/admin/seed/page.tsx
 'use client';
 

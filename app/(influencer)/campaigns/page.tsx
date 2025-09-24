@@ -1,3 +1,4 @@
+"use client";
 // app/(influencer)/campaigns/page.tsx
 'use client';
 

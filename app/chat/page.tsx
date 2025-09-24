@@ -1,3 +1,4 @@
+"use client";
 // app/chat/page.tsx
 'use client';
 

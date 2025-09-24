@@ -1,3 +1,4 @@
+"use client";
 // app/(advertiser)/create-campaign/page.tsx
 'use client';
 

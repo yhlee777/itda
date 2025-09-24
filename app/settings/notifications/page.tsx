@@ -1,3 +1,4 @@
+"use client";
 // app/settings/notifications/page.tsx
 'use client';
 

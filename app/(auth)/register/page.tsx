@@ -1,3 +1,4 @@
+"use client";
 // app/(auth)/register/page.tsx - 수정된 버전
 'use client';
 
