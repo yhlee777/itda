@@ -5,8 +5,8 @@ import type { Database } from '@/types/database.types';
 type Campaign = Database['public']['Tables']['campaigns']['Row'];
 
 export class ImprovedSwipeQueueManager {
-  // 초기 단계: 30개 제한
-  private static readonly QUEUE_SIZE = 30;
+  // 초기 단계: 10개 제한 (수정됨: 30 → 10)
+  private static readonly QUEUE_SIZE = 10;
   private static readonly REFRESH_INTERVAL = 30 * 60 * 1000; // 30분
   
   /**
@@ -39,8 +39,8 @@ export class ImprovedSwipeQueueManager {
       
       const swipedCampaignIds = swipeHistory?.map(s => s.campaign_id) || [];
       
-      // 3. 제외할 캠페인 ID 통합
-      const excludedIds = [...new Set([...appliedCampaignIds, ...swipedCampaignIds])];
+      // 3. 제외할 캠페인 ID 통합 (Set 에러 해결)
+      const excludedIds = Array.from(new Set([...appliedCampaignIds, ...swipedCampaignIds]));
       
       // 4. 활성 캠페인 가져오기 (카테고리 매칭 우선)
       let query = supabase
@@ -96,18 +96,19 @@ export class ImprovedSwipeQueueManager {
         return { ...campaign, matchScore: score };
       });
       
-      // 6. 점수 기준 정렬 및 상위 30개 선택
+      // 6. 점수 기준 정렬 및 상위 10개 선택 (수정됨)
       const topCampaigns = scoredCampaigns
         .sort((a, b) => b.matchScore - a.matchScore)
         .slice(0, this.QUEUE_SIZE);
       
-      // 7. 큐에 저장
+      // 7. 큐에 저장 (스키마 수정)
       const queueData = topCampaigns.map((campaign, index) => ({
         influencer_id: influencerId,
         campaign_id: campaign.id,
-        position: index + 1,
-        match_score: campaign.matchScore,
-        created_at: new Date().toISOString()
+        queue_order: index + 1,  // position → queue_order로 변경
+        category_priority: campaign.matchScore || 0,  // match_score → category_priority 사용
+        added_at: new Date().toISOString(),  // created_at → added_at으로 변경
+        expires_at: new Date(Date.now() + this.REFRESH_INTERVAL).toISOString()  // expires_at 추가
       }));
       
       // 기존 큐 삭제
@@ -144,12 +145,12 @@ export class ImprovedSwipeQueueManager {
     const supabase = createClient();
     
     try {
-      // 큐에서 다음 캠페인 가져오기
+      // 큐에서 다음 캠페인 가져오기 (queue_order 수정)
       const { data: queueItem } = await supabase
         .from('campaign_queue')
         .select('campaign_id')
         .eq('influencer_id', influencerId)
-        .order('position', { ascending: true })
+        .order('queue_order', { ascending: true })  // position → queue_order로 변경
         .limit(1)
         .single();
       
