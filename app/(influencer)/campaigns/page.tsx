@@ -153,16 +153,13 @@ export default function CampaignsPage() {
     try {
       // TypedSupabase의 getActiveCampaigns 사용
       const dbCampaigns = await db.getActiveCampaigns(20);
+const { data: appliedCampaigns } = await supabase
+  .from('campaign_influencers')  // ✅ applications → campaign_influencers
+  .select('campaign_id')
+  .eq('influencer_id', userId)
+  .in('status', ['pending', 'accepted', 'rejected']);
 
-      // 이미 지원한 캠페인 목록 가져오기
-      const { data: appliedCampaigns } = await supabase
-        .from('applications')
-        .select('campaign_id')
-        .eq('influencer_id', userId)
-        .in('status', ['pending', 'accepted', 'rejected']);
-      
-      const appliedCampaignIds = (appliedCampaigns as Array<{campaign_id: string}>)?.map(app => app.campaign_id) || [];
-
+const appliedCampaignIds = appliedCampaigns?.map(app => app.campaign_id) || [];
       // 이미 지원한 캠페인 필터링
       const filteredCampaigns = dbCampaigns.filter(
         campaign => !appliedCampaignIds.includes(campaign.id)

@@ -1,3 +1,4 @@
+// app/(chat)/chat/[roomId]/page.tsx
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -14,17 +15,15 @@ import { createClient } from '@/lib/supabase/client';
 import { toast } from 'react-hot-toast';
 import { format, isSameDay, formatDistanceToNow } from 'date-fns';
 import { ko } from 'date-fns/locale';
+import type { Database } from '@/types/database.types';
 
-// 타입 정의
-interface Message {
-  id: string;
-  room_id: string;
-  sender_id: string;
-  message: string; // content → message로 변경
-  attachments?: any; // type과 file_url 대신 attachments 사용
-  is_read?: boolean;
-  read_at?: string;
-  created_at: string;
+// DB 타입 가져오기
+type Tables = Database['public']['Tables'];
+type MessageRow = Tables['messages']['Row'];
+type ChatRoomRow = Tables['chat_rooms']['Row'];
+
+// 확장된 타입 정의
+interface Message extends MessageRow {
   sender?: {
     name: string;
     avatar: string;
@@ -32,27 +31,25 @@ interface Message {
   };
 }
 
-interface ChatRoom {
-  id: string;
-  advertiser_id: string;
-  influencer_id: string;
-  campaign_id?: string;
-  created_at: string;
+interface ChatRoom extends ChatRoomRow {
   campaign?: {
+    id: string;
     name: string;
     budget: number;
-    categories: string[];
+    categories: string[] | null;
   };
   advertiser?: {
+    id: string;
     company_name: string;
     company_logo: string | null;
   };
   influencer?: {
+    id: string;
     name: string;
     avatar: string | null;
-    followers_count: number;
-    engagement_rate: number;
-    is_verified: boolean;
+    followers_count: number | null;
+    engagement_rate: number | null;
+    is_verified: boolean | null;
   };
 }
 
@@ -80,12 +77,13 @@ export default function ChatRoomPage() {
   useEffect(() => {
     fetchChatRoom();
     fetchMessages();
-    setupRealtimeSubscription();
+    const unsubscribe = setupRealtimeSubscription();
     
     return () => {
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
       }
+      unsubscribe?.();
     };
   }, [roomId]);
 
@@ -99,34 +97,34 @@ export default function ChatRoomPage() {
 
   const fetchChatRoom = async () => {
     try {
-      const { data: user } = await supabase.auth.getUser();
-      if (!user?.user) return;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-      setCurrentUser(user.user);
+      setCurrentUser(user);
 
       // 채팅방 정보 가져오기
       const { data: room, error } = await supabase
         .from('chat_rooms')
         .select(`
           *,
-          campaign:campaigns(name, budget, categories),
-          advertiser:advertisers(company_name, company_logo),
-          influencer:influencers(name, avatar, followers_count, engagement_rate, is_verified)
+          campaigns (id, name, budget, categories),
+          advertisers (id, company_name, company_logo),
+          influencers (id, name, avatar, followers_count, engagement_rate, is_verified)
         `)
         .eq('id', roomId)
         .single();
 
       if (error) throw error;
 
-      setChatRoom(room);
+      setChatRoom(room as ChatRoom);
 
       // 사용자 타입 확인
-      if (room.advertiser_id === user.user.id) {
+      if (room.advertiser_id === user.id) {
         setUserType('advertiser');
-        setOtherUserInfo(room.influencer);
+        setOtherUserInfo(room.influencers);
       } else {
         setUserType('influencer');
-        setOtherUserInfo(room.advertiser);
+        setOtherUserInfo(room.advertisers);
       }
     } catch (error) {
       console.error('Error fetching chat room:', error);
@@ -139,7 +137,7 @@ export default function ChatRoomPage() {
       const { data, error } = await supabase
         .from('messages')
         .select('*')
-        .eq('room_id', roomId)
+        .eq('chat_room_id', roomId) // room_id → chat_room_id
         .order('created_at', { ascending: true });
 
       if (error) throw error;
@@ -150,32 +148,18 @@ export default function ChatRoomPage() {
           let senderInfo;
           
           // 발신자가 광고주인지 인플루언서인지 확인
-          const { data: advertiser } = await supabase
-            .from('advertisers')
-            .select('company_name, company_logo')
-            .eq('id', msg.sender_id)
-            .single();
-
-          if (advertiser) {
+          if (chatRoom?.advertiser_id === msg.sender_id) {
             senderInfo = {
-              name: advertiser.company_name,
-              avatar: advertiser.company_logo || '/default-company.png',
+              name: chatRoom.advertiser?.company_name || '광고주',
+              avatar: chatRoom.advertiser?.company_logo || '/default-company.png',
               user_type: 'advertiser' as const
             };
           } else {
-            const { data: influencer } = await supabase
-              .from('influencers')
-              .select('name, avatar')
-              .eq('id', msg.sender_id)
-              .single();
-
-            if (influencer) {
-              senderInfo = {
-                name: influencer.name,
-                avatar: influencer.avatar || '/default-avatar.png',
-                user_type: 'influencer' as const
-              };
-            }
+            senderInfo = {
+              name: chatRoom?.influencer?.name || '인플루언서',
+              avatar: chatRoom?.influencer?.avatar || '/default-avatar.png',
+              user_type: 'influencer' as const
+            };
           }
 
           return {
@@ -199,8 +183,11 @@ export default function ChatRoomPage() {
 
     await supabase
       .from('messages')
-      .update({ read_at: new Date().toISOString() })
-      .eq('room_id', roomId)
+      .update({ 
+        is_read: true,
+        read_at: new Date().toISOString() 
+      })
+      .eq('chat_room_id', roomId)
       .neq('sender_id', currentUser.id)
       .is('read_at', null);
   };
@@ -212,38 +199,24 @@ export default function ChatRoomPage() {
         event: 'INSERT',
         schema: 'public',
         table: 'messages',
-        filter: `room_id=eq.${roomId}`
+        filter: `chat_room_id=eq.${roomId}` // room_id → chat_room_id
       }, async (payload) => {
-        const newMsg = payload.new as Message;
+        const newMsg = payload.new as MessageRow;
         
-        // 발신자 정보 가져오기
+        // 발신자 정보 추가
         let senderInfo;
-        const { data: advertiser } = await supabase
-          .from('advertisers')
-          .select('company_name, company_logo')
-          .eq('id', newMsg.sender_id)
-          .single();
-
-        if (advertiser) {
+        if (chatRoom?.advertiser_id === newMsg.sender_id) {
           senderInfo = {
-            name: advertiser.company_name,
-            avatar: advertiser.company_logo || '/default-company.png',
+            name: chatRoom.advertiser?.company_name || '광고주',
+            avatar: chatRoom.advertiser?.company_logo || '/default-company.png',
             user_type: 'advertiser' as const
           };
         } else {
-          const { data: influencer } = await supabase
-            .from('influencers')
-            .select('name, avatar')
-            .eq('id', newMsg.sender_id)
-            .single();
-
-          if (influencer) {
-            senderInfo = {
-              name: influencer.name,
-              avatar: influencer.avatar || '/default-avatar.png',
-              user_type: 'influencer' as const
-            };
-          }
+          senderInfo = {
+            name: chatRoom?.influencer?.name || '인플루언서',
+            avatar: chatRoom?.influencer?.avatar || '/default-avatar.png',
+            user_type: 'influencer' as const
+          };
         }
 
         setMessages(prev => [...prev, { ...newMsg, sender: senderInfo }]);
@@ -270,10 +243,12 @@ export default function ChatRoomPage() {
       const { error } = await supabase
         .from('messages')
         .insert({
-          room_id: roomId,
+          chat_room_id: roomId, // room_id → chat_room_id
           sender_id: currentUser.id,
-          message: messageContent // content → message로 변경
-        } as any); // 임시 타입 캐스팅
+          content: messageContent, // message → content
+          sender_type: userType,
+          message_type: 'text'
+        });
 
       if (error) throw error;
 
@@ -287,11 +262,14 @@ export default function ChatRoomPage() {
           .from('notifications')
           .insert({
             user_id: recipientId,
-            type: 'message',
+            type: 'new_message',
             title: '새 메시지',
-            message: `${currentUser.user_metadata?.name || '사용자'}님이 메시지를 보냈습니다`,
-            metadata: { room_id: roomId }
-          } as any); // 임시 타입 캐스팅
+            message: `${userType === 'advertiser' ? chatRoom?.advertiser?.company_name : chatRoom?.influencer?.name}님이 메시지를 보냈습니다`,
+            metadata: { 
+              chat_room_id: roomId,
+              sender_id: currentUser.id 
+            }
+          });
       }
     } catch (error) {
       console.error('Error sending message:', error);
@@ -305,7 +283,6 @@ export default function ChatRoomPage() {
   const handleTyping = () => {
     if (!isTyping) {
       setIsTyping(true);
-      // 상대방에게 타이핑 중임을 알림 (실시간 기능 구현 시)
     }
 
     if (typingTimeoutRef.current) {
@@ -379,17 +356,11 @@ export default function ChatRoomPage() {
                     : 'bg-gray-100 text-gray-900'
                 }`}
               >
-                <p className="whitespace-pre-wrap">{message.message}</p>
-                
-                {message.attachments && Array.isArray(message.attachments) && message.attachments.length > 0 && (
-                  <div className="mt-2">
-                    {/* 첨부파일 처리 */}
-                  </div>
-                )}
+                <p className="whitespace-pre-wrap">{message.content}</p>
               </div>
 
               <div className="flex items-center gap-1 mt-1 text-xs text-gray-500">
-                <span>{formatMessageTime(message.created_at)}</span>
+                <span>{formatMessageTime(message.created_at || new Date().toISOString())}</span>
                 {message.sender_id === currentUser?.id && (
                   message.read_at ? (
                     <CheckCheck className="w-3 h-3 text-blue-500" />
@@ -409,7 +380,7 @@ export default function ChatRoomPage() {
     const groups = new Map<string, Message[]>();
     
     messages.forEach((message) => {
-      const date = format(new Date(message.created_at), 'yyyy-MM-dd');
+      const date = format(new Date(message.created_at || new Date()), 'yyyy-MM-dd');
       const existing = groups.get(date) || [];
       groups.set(date, [...existing, message]);
     });
@@ -535,8 +506,8 @@ export default function ChatRoomPage() {
           <div className="flex items-center gap-2 text-gray-500 text-sm mb-4">
             <div className="flex gap-1">
               <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
-              <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-75" />
-              <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-150" />
+              <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
+              <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
             </div>
             <span>입력 중...</span>
           </div>
