@@ -15,7 +15,7 @@ export default function InfluencerLayout({
 }) {
   const pathname = usePathname();
 
-  // 메인 네비게이션 아이템 - 메시지 링크를 /chat으로 변경
+  // 메인 네비게이션 아이템 - applications 링크 변경
   const navItems = [
     { 
       href: '/campaigns', 
@@ -24,13 +24,13 @@ export default function InfluencerLayout({
       iconActive: Home 
     },
     { 
-      href: '/applications', 
+      href: '/influencer-applications',  // ✅ /applications → /influencer-applications로 변경!
       label: '지원현황', 
       icon: Briefcase,
       iconActive: Briefcase
     },
     { 
-      href: '/chat',  // ✅ /messages → /chat으로 변경
+      href: '/chat',
       label: '메시지', 
       icon: MessageCircle,
       iconActive: MessageCircle,

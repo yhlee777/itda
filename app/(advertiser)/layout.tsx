@@ -23,6 +23,7 @@ export default function AdvertiserLayout({
     { href: '/find-influencers', label: '인플루언서 찾기', icon: Search },
     { href: '/create-campaign', label: '캠페인 생성', icon: Plus },
     { href: '/campaigns-list', label: '캠페인 관리', icon: List },
+    { href: '/advertiser-applications', label: '지원자 관리', icon: Users, badge: 12 }, // ✅ 추가됨!
     { href: '/chat', label: '메시지', icon: MessageCircle, badge: 5 },
     { href: '/analytics', label: '분석', icon: TrendingUp },
     { href: '/payments', label: '정산', icon: CreditCard },
@@ -139,46 +140,15 @@ export default function AdvertiserLayout({
                     </Link>
                   ))}
                 </div>
-
-                {/* 설정 메뉴 */}
-                <div className="mt-8 pt-8 border-t">
-                  <Link
-                    href="/settings"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                      pathname === '/settings'
-                        ? 'bg-purple-100 text-purple-600'
-                        : 'text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    <Settings className="w-5 h-5" />
-                    <span className="font-medium">설정</span>
-                  </Link>
-                </div>
               </nav>
-              
-              {/* 프로필 영역 */}
-              <div className="p-6 border-t">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold">
-                    B
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-medium text-sm">브랜드 매니저</div>
-                    <div className="text-xs text-gray-500">advertiser@test.com</div>
-                  </div>
-                </div>
-              </div>
             </div>
           </aside>
         </div>
       )}
 
-      {/* 메인 컨텐츠 영역 - 중요! children이 여기서 렌더링됩니다 */}
-      <main className="flex-1 md:ml-0 overflow-y-auto">
-        <div className="w-full">
-          {children}
-        </div>
+      {/* 메인 컨텐츠 */}
+      <main className="flex-1 overflow-auto">
+        {children}
       </main>
     </div>
   );

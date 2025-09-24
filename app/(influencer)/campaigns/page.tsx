@@ -614,19 +614,24 @@ export default function CampaignsPage() {
                 exit={{ scale: 0.95, opacity: 0 }}
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
                 drag="y"
-                dragConstraints={{ top: -150, bottom: 50 }}
-                dragElastic={0.2}
+                dragConstraints={{ top: -50, bottom: 20 }}
+                dragElastic={0.1}
                 onDrag={(_, info) => {
                   setDragY(info.offset.y);
                 }}
                 onDragEnd={(_, info) => {
                   setDragY(0);
-                  // 더 낮은 임계값으로 변경 (더 쉽게 상세정보 열기)
-                  if (info.offset.y < -30) {
+                  // 위로 드래그시 상세정보 열기
+                  if (info.offset.y < -25) {
                     setShowDetails(true);
                   }
-                  else if (info.offset.y > 100) {
-                    loadCampaigns();
+                  // 아래로 당겨서 새로고침 (선택사항)
+                  else if (info.offset.y > 15) {
+                    // 작은 진동 피드백 효과
+                    toast('잠시만요...', { icon: '🔄', duration: 1000 });
+                    setTimeout(() => {
+                      loadCampaigns();
+                    }, 500);
                   }
                 }}
               >
@@ -667,17 +672,8 @@ export default function CampaignsPage() {
                     </div>
                   </div>
                   
-                  <div className="relative p-4 sm:p-5 h-[55%] sm:h-[52%] overflow-y-auto">
-                    {/* 상단에 스와이프 가능 영역 표시 */}
-                    <div className="absolute top-0 left-0 right-0 h-16 bg-gradient-to-b from-purple-50/50 to-transparent pointer-events-none flex items-center justify-center">
-                      <div className="flex items-center gap-2 text-purple-600">
-                        <ChevronUp className="w-4 h-4 animate-bounce" />
-                        <span className="text-xs font-medium">여기를 위로 드래그</span>
-                        <ChevronUp className="w-4 h-4 animate-bounce" />
-                      </div>
-                    </div>
-                    
-                    <h2 className="text-lg sm:text-xl font-bold mb-2 mt-8">{currentCampaign.title}</h2>
+                  <div className="relative p-4 sm:p-5 h-[55%] sm:h-[52%]">
+                    <h2 className="text-lg sm:text-xl font-bold mb-2">{currentCampaign.title}</h2>
                     
                     <p className="text-xs sm:text-sm text-gray-600 mb-2 line-clamp-2">
                       {currentCampaign.description}
