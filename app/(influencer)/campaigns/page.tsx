@@ -1,14 +1,11 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { Camera, X, Heart, MapPin, Calendar, DollarSign, Users, Target, CheckCircle, Clock, RefreshCw, Gift, Sparkles } from 'lucide-react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { X, Heart, Clock, Sparkles, Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'react-hot-toast';
 import { ImprovedSwipeQueueManager } from '@/lib/matching/swipe-queue-manager';
 import type { Database } from '@/types/database.types';
-
-// Framer Motion - 조건부 import 제거하고 직접 import
-import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 
 // 타입 정의
 type Campaign = Database['public']['Tables']['campaigns']['Row'];
@@ -18,7 +15,7 @@ interface CampaignWithAdvertiser extends Campaign {
   advertisers?: Advertiser;
 }
 
-// Toast 헬퍼 함수
+// Toast 헬퍼
 const toastInfo = (message: string) => {
   toast(message, {
     icon: '💜',
@@ -30,10 +27,9 @@ const toastInfo = (message: string) => {
 };
 
 export default function CampaignsPage() {
-  // State 선언
+  // 모든 State는 조건 없이 선언
   const [campaigns, setCampaigns] = useState<CampaignWithAdvertiser[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [showDetails, setShowDetails] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
@@ -42,46 +38,10 @@ export default function CampaignsPage() {
   const [dailyLimitReached, setDailyLimitReached] = useState(false);
   const [nextRefreshTime, setNextRefreshTime] = useState<Date | null>(null);
   
-  // Refs
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  
-  // Motion values - 직접 사용
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-  const rotate = useTransform(x, [-200, 200], [-30, 30]);
-  const opacity = useTransform(x, [-200, -100, 0, 100, 200], [0, 1, 1, 1, 0]);
-  
-  const supabase = createClient();
+  // Supabase 클라이언트 - useMemo로 메모이제이션
+  const supabase = useMemo(() => createClient(), []);
 
-  // 유저 정보 로드
-  useEffect(() => {
-    loadUserInfo();
-  }, []);
-
-  // 캠페인 로드
-  useEffect(() => {
-    if (influencerId) {
-      loadCampaigns();
-      checkDailyLimit();
-    }
-  }, [influencerId]);
-
-  // 남은 시간 카운트다운
-  useEffect(() => {
-    if (!nextRefreshTime || !dailyLimitReached) return;
-    
-    const timer = setInterval(() => {
-      const now = new Date();
-      if (now >= nextRefreshTime) {
-        setDailyLimitReached(false);
-        loadCampaigns();
-        clearInterval(timer);
-      }
-    }, 60000);
-    
-    return () => clearInterval(timer);
-  }, [nextRefreshTime, dailyLimitReached]);
-
+  // 함수들 정의
   const loadUserInfo = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -195,6 +155,7 @@ export default function CampaignsPage() {
 
   const handleSwipeAction = async (action: 'like' | 'pass' | 'super_like') => {
     if (!influencerId || !campaigns[currentIndex]) return;
+    if (isProcessing) return;
     
     const campaign = campaigns[currentIndex];
     setIsProcessing(true);
@@ -214,6 +175,8 @@ export default function CampaignsPage() {
           toast.success('슈퍼 라이크! ⭐');
         } else if (action === 'like') {
           toast.success('좋아요! 👍');
+        } else {
+          toast('패스!', { icon: '👋' });
         }
         
         if (newSwipesLeft === 0) {
@@ -225,14 +188,14 @@ export default function CampaignsPage() {
         setTimeout(() => {
           if (currentIndex < campaigns.length - 1) {
             setCurrentIndex(prev => prev + 1);
-            x.set(0);
-            y.set(0);
           } else {
             setCampaigns([]);
             toastInfo('모든 캠페인을 확인했습니다!');
           }
           setIsProcessing(false);
         }, 300);
+      } else {
+        setIsProcessing(false);
       }
     } catch (error) {
       console.error('Error processing swipe:', error);
@@ -241,24 +204,34 @@ export default function CampaignsPage() {
     }
   };
 
-  // 드래그 끝났을 때
-  const handleDragEnd = () => {
-    if (isProcessing) return;
-    
-    const swipeThreshold = 100;
-    const currentX = x.get();
-    
-    if (Math.abs(currentX) > swipeThreshold) {
-      const action = currentX > 0 ? 'like' : 'pass';
-      handleSwipeAction(action);
-    } else {
-      // 원위치로 복귀
-      x.set(0);
-      y.set(0);
-    }
-  };
+  // Effects
+  useEffect(() => {
+    loadUserInfo();
+  }, []);
 
-  // 카테고리 표시
+  useEffect(() => {
+    if (influencerId) {
+      loadCampaigns();
+      checkDailyLimit();
+    }
+  }, [influencerId]);
+
+  useEffect(() => {
+    if (!nextRefreshTime || !dailyLimitReached) return;
+    
+    const timer = setInterval(() => {
+      const now = new Date();
+      if (now >= nextRefreshTime) {
+        setDailyLimitReached(false);
+        loadCampaigns();
+        clearInterval(timer);
+      }
+    }, 60000);
+    
+    return () => clearInterval(timer);
+  }, [nextRefreshTime, dailyLimitReached]);
+
+  // 카테고리 표시 헬퍼
   const getCategoryDisplay = (campaign: CampaignWithAdvertiser) => {
     if (campaign.categories && campaign.categories.length > 0) {
       return campaign.categories[0];
@@ -268,6 +241,7 @@ export default function CampaignsPage() {
 
   const currentCampaign = campaigns[currentIndex];
 
+  // UI 렌더링
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50 pb-20">
       {/* 헤더 */}
@@ -289,137 +263,147 @@ export default function CampaignsPage() {
         </div>
       </div>
 
-      {/* 캠페인 카드 영역 */}
+      {/* 메인 컨텐츠 */}
       <div className="max-w-lg mx-auto px-4 py-8">
         {isLoading ? (
-          <div className="flex items-center justify-center h-[500px]">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
-              <p className="mt-4 text-gray-600">캠페인을 불러오는 중...</p>
-            </div>
-          </div>
+          <LoadingState />
         ) : dailyLimitReached ? (
-          <div className="text-center py-20">
-            <Clock className="w-20 h-20 text-purple-300 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">
-              오늘의 스와이프 완료!
-            </h2>
-            <p className="text-gray-600 mb-4">
-              내일 다시 새로운 캠페인을 만나보세요
-            </p>
-            {nextRefreshTime && (
-              <p className="text-sm text-purple-600">
-                리셋 시간: {nextRefreshTime.toLocaleString('ko-KR')}
-              </p>
-            )}
-          </div>
+          <DailyLimitState nextRefreshTime={nextRefreshTime} />
         ) : currentCampaign ? (
-          <div className="relative h-[600px]">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={currentCampaign.id}
-                style={{ x, y, rotate, opacity }}
-                drag={!isProcessing}
-                dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
-                dragElastic={1}
-                onDragEnd={handleDragEnd}
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.8, opacity: 0 }}
-                transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                className="absolute inset-0 bg-white rounded-2xl shadow-xl overflow-hidden cursor-grab active:cursor-grabbing"
-              >
-                {/* 캠페인 이미지 */}
-                <div className="h-2/3 bg-gradient-to-br from-purple-400 to-pink-400 relative">
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-white text-6xl">
-                      {currentCampaign.advertisers?.company_logo || '🎯'}
-                    </div>
-                  </div>
-                  {/* 카테고리 뱃지 */}
-                  <div className="absolute top-4 left-4">
-                    <span className="px-3 py-1 bg-white/90 text-purple-600 rounded-full text-sm font-medium">
-                      {getCategoryDisplay(currentCampaign)}
-                    </span>
-                  </div>
-                  {/* 스와이프 인디케이터 */}
-                  <motion.div
-                    style={{ opacity: useTransform(x, [0, 100], [0, 1]) }}
-                    className="absolute top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-full font-bold"
-                  >
-                    LIKE
-                  </motion.div>
-                  <motion.div
-                    style={{ opacity: useTransform(x, [0, -100], [0, 1]) }}
-                    className="absolute top-4 left-4 bg-red-500 text-white px-4 py-2 rounded-full font-bold"
-                  >
-                    PASS
-                  </motion.div>
-                </div>
-                
-                {/* 캠페인 정보 */}
-                <div className="p-4">
-                  <h3 className="text-xl font-bold text-gray-800 mb-2">
-                    {currentCampaign.name}
-                  </h3>
-                  <p className="text-gray-600 text-sm mb-3">
-                    {currentCampaign.description?.slice(0, 100)}...
-                  </p>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-purple-600 font-medium">
-                      💰 {(currentCampaign.budget || 0).toLocaleString()}원
-                    </span>
-                    <span className="text-gray-500">
-                      📅 {new Date(currentCampaign.deadline || '').toLocaleDateString('ko-KR')}
-                    </span>
-                  </div>
-                </div>
-              </motion.div>
-            </AnimatePresence>
-            
-            {/* 액션 버튼들 */}
-            <div className="absolute bottom-[-80px] left-0 right-0 flex justify-center gap-6">
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={() => handleSwipeAction('pass')}
-                disabled={isProcessing}
-                className="w-14 h-14 rounded-full bg-white shadow-lg flex items-center justify-center hover:shadow-xl transition-shadow disabled:opacity-50"
-              >
-                <X className="w-6 h-6 text-red-500" />
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={() => handleSwipeAction('super_like')}
-                disabled={isProcessing}
-                className="w-14 h-14 rounded-full bg-white shadow-lg flex items-center justify-center hover:shadow-xl transition-shadow disabled:opacity-50"
-              >
-                <Sparkles className="w-6 h-6 text-blue-500" />
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={() => handleSwipeAction('like')}
-                disabled={isProcessing}
-                className="w-14 h-14 rounded-full bg-white shadow-lg flex items-center justify-center hover:shadow-xl transition-shadow disabled:opacity-50"
-              >
-                <Heart className="w-6 h-6 text-green-500" />
-              </motion.button>
-            </div>
-          </div>
+          <CampaignCard 
+            campaign={currentCampaign}
+            onAction={handleSwipeAction}
+            isProcessing={isProcessing}
+            category={getCategoryDisplay(currentCampaign)}
+          />
         ) : (
-          <div className="text-center py-20">
-            <Users className="w-20 h-20 text-gray-300 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold text-gray-700 mb-2">
-              캠페인이 없습니다
-            </h2>
-            <p className="text-gray-500">
-              잠시 후 다시 시도해주세요
-            </p>
-          </div>
+          <EmptyState />
         )}
       </div>
+    </div>
+  );
+}
+
+// 로딩 컴포넌트
+function LoadingState() {
+  return (
+    <div className="flex items-center justify-center h-[500px]">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+        <p className="mt-4 text-gray-600">캠페인을 불러오는 중...</p>
+      </div>
+    </div>
+  );
+}
+
+// 일일 제한 컴포넌트
+function DailyLimitState({ nextRefreshTime }: { nextRefreshTime: Date | null }) {
+  return (
+    <div className="text-center py-20">
+      <Clock className="w-20 h-20 text-purple-300 mx-auto mb-4" />
+      <h2 className="text-2xl font-bold text-gray-800 mb-2">
+        오늘의 스와이프 완료!
+      </h2>
+      <p className="text-gray-600 mb-4">
+        내일 다시 새로운 캠페인을 만나보세요
+      </p>
+      {nextRefreshTime && (
+        <p className="text-sm text-purple-600">
+          리셋 시간: {nextRefreshTime.toLocaleString('ko-KR')}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// 캠페인 카드 컴포넌트
+function CampaignCard({ 
+  campaign, 
+  onAction, 
+  isProcessing,
+  category 
+}: { 
+  campaign: CampaignWithAdvertiser;
+  onAction: (action: 'like' | 'pass' | 'super_like') => void;
+  isProcessing: boolean;
+  category: string;
+}) {
+  return (
+    <div className="relative h-[600px]">
+      <div className="bg-white rounded-2xl shadow-xl overflow-hidden h-full">
+        {/* 캠페인 이미지 */}
+        <div className="h-2/3 bg-gradient-to-br from-purple-400 to-pink-400 relative">
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="text-white text-6xl">
+              {campaign.advertisers?.company_logo || '🎯'}
+            </div>
+          </div>
+          {/* 카테고리 뱃지 */}
+          <div className="absolute top-4 left-4">
+            <span className="px-3 py-1 bg-white/90 text-purple-600 rounded-full text-sm font-medium">
+              {category}
+            </span>
+          </div>
+        </div>
+        
+        {/* 캠페인 정보 */}
+        <div className="p-4">
+          <h3 className="text-xl font-bold text-gray-800 mb-2">
+            {campaign.name}
+          </h3>
+          <p className="text-gray-600 text-sm mb-3">
+            {campaign.description?.slice(0, 100)}...
+          </p>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-purple-600 font-medium">
+              💰 {(campaign.budget || 0).toLocaleString()}원
+            </span>
+            <span className="text-gray-500">
+              📅 {new Date(campaign.deadline || '').toLocaleDateString('ko-KR')}
+            </span>
+          </div>
+        </div>
+      </div>
+      
+      {/* 액션 버튼들 */}
+      <div className="flex justify-center gap-6 mt-6">
+        <button
+          onClick={() => onAction('pass')}
+          disabled={isProcessing}
+          className="w-14 h-14 rounded-full bg-white shadow-lg flex items-center justify-center hover:scale-110 transition-transform disabled:opacity-50"
+        >
+          <X className="w-6 h-6 text-red-500" />
+        </button>
+        <button
+          onClick={() => onAction('super_like')}
+          disabled={isProcessing}
+          className="w-14 h-14 rounded-full bg-white shadow-lg flex items-center justify-center hover:scale-110 transition-transform disabled:opacity-50"
+        >
+          <Sparkles className="w-6 h-6 text-blue-500" />
+        </button>
+        <button
+          onClick={() => onAction('like')}
+          disabled={isProcessing}
+          className="w-14 h-14 rounded-full bg-white shadow-lg flex items-center justify-center hover:scale-110 transition-transform disabled:opacity-50"
+        >
+          <Heart className="w-6 h-6 text-green-500" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// 빈 상태 컴포넌트
+function EmptyState() {
+  return (
+    <div className="text-center py-20">
+      <Users className="w-20 h-20 text-gray-300 mx-auto mb-4" />
+      <h2 className="text-xl font-semibold text-gray-700 mb-2">
+        캠페인이 없습니다
+      </h2>
+      <p className="text-gray-500">
+        잠시 후 다시 시도해주세요
+      </p>
     </div>
   );
 }
