@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
-import { Toaster } from 'sonner';
-import { Toaster as HotToaster } from 'react-hot-toast';
+import { Toaster } from 'react-hot-toast';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -142,27 +141,6 @@ export default function RootLayout({
               transform: translate(-50%, -50%);
               z-index: 9999;
             }
-            /* Sonner 타입별 스타일 */
-            [data-sonner-toast][data-type="success"] {
-              background-color: #f0fdf4 !important;
-              border-color: #86efac !important;
-              color: #166534 !important;
-            }
-            [data-sonner-toast][data-type="error"] {
-              background-color: #fef2f2 !important;
-              border-color: #fca5a5 !important;
-              color: #991b1b !important;
-            }
-            [data-sonner-toast][data-type="info"] {
-              background-color: #eff6ff !important;
-              border-color: #93c5fd !important;
-              color: #1e40af !important;
-            }
-            [data-sonner-toast][data-type="warning"] {
-              background-color: #fefce8 !important;
-              border-color: #fde047 !important;
-              color: #854d0e !important;
-            }
           `
         }} />
       </head>
@@ -173,50 +151,27 @@ export default function RootLayout({
           {children}
         </main>
         
-        {/* Sonner Toaster - 메인 알림 시스템 */}
-        <Toaster 
+        {/* React Hot Toast - 통일된 알림 시스템 */}
+        <Toaster
           position="top-right"
-          toastOptions={{
-            // 공통 스타일
-            style: {
-              background: 'white',
-              color: '#363636',
-              border: '1px solid #e5e7eb',
-              borderRadius: '0.75rem',
-              padding: '1rem',
-              boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
-              maxWidth: '420px',
-            },
-            className: 'sonner-toast',
-            duration: 4000,
-          }}
-          // 추가 옵션
-          richColors // 타입별 색상 자동 적용
-          expand={false} // 자동 확장 비활성화
-          visibleToasts={5} // 최대 5개 토스트 표시
-          closeButton // 닫기 버튼 표시
-          gap={12} // 토스트 간격
-          theme="light" // 테마 설정
-        />
-        
-        {/* React Hot Toast - 보조 알림 (필요시) */}
-        <HotToaster
-          position="bottom-center"
           reverseOrder={false}
-          gutter={8}
-          containerClassName=""
+          gutter={12}
           containerStyle={{
-            bottom: 100,
+            top: 20,
+            right: 20,
           }}
           toastOptions={{
             // 기본 옵션
             duration: 3000,
             style: {
-              background: '#363636',
-              color: '#fff',
-              borderRadius: '8px',
-              padding: '12px 16px',
+              background: '#ffffff',
+              color: '#363636',
+              borderRadius: '12px',
+              padding: '16px',
               fontSize: '14px',
+              boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
+              border: '1px solid #e5e7eb',
+              maxWidth: '420px',
             },
             // 성공 스타일
             success: {
@@ -226,7 +181,9 @@ export default function RootLayout({
                 secondary: '#fff',
               },
               style: {
-                background: '#10b981',
+                background: '#f0fdf4',
+                color: '#166534',
+                border: '1px solid #86efac',
               },
             },
             // 에러 스타일
@@ -237,7 +194,9 @@ export default function RootLayout({
                 secondary: '#fff',
               },
               style: {
-                background: '#ef4444',
+                background: '#fef2f2',
+                color: '#991b1b',
+                border: '1px solid #fca5a5',
               },
             },
             // 로딩 스타일
@@ -247,7 +206,9 @@ export default function RootLayout({
                 secondary: '#fff',
               },
               style: {
-                background: '#6366f1',
+                background: '#eff6ff',
+                color: '#1e40af',
+                border: '1px solid #93c5fd',
               },
             },
           }}

@@ -1,378 +1,254 @@
+/* app/globals.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* 기본 스타일 리셋 */
+/* ================================
+   Dark Neon Theme Variables
+================================ */
+:root {
+  /* Dark Background Colors */
+  --dark-primary: #0A0E27;
+  --dark-secondary: #151931;
+  --dark-tertiary: #1A1F3A;
+  
+  /* Neon Colors */
+  --neon-blue: #00D4FF;
+  --neon-purple: #7B61FF;
+  --neon-pink: #FF00E5;
+  --neon-green: #00FF88;
+  --neon-yellow: #FFD700;
+  --neon-orange: #FF6B35;
+  
+  /* Glass Effect */
+  --glass-bg: rgba(255, 255, 255, 0.1);
+  --glass-border: rgba(255, 255, 255, 0.2);
+}
+
+/* ================================
+   Global Styles
+================================ */
 * {
-  margin: 0;
-  padding: 0;
   box-sizing: border-box;
+  padding: 0;
+  margin: 0;
 }
 
 html {
   scroll-behavior: smooth;
-}
-
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* 스크롤바 스타일 */
+body {
+  background: linear-gradient(135deg, var(--dark-primary) 0%, var(--dark-tertiary) 100%);
+  color: white;
+  min-height: 100vh;
+  overflow-x: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* ================================
+   Scrollbar Styling
+================================ */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #888;
-  border-radius: 3px;
+  background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple));
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #555;
+  background: linear-gradient(135deg, var(--neon-purple), var(--neon-pink));
+  background-clip: padding-box;
 }
 
-/* 애니메이션 클래스 */
-@keyframes fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+/* ================================
+   Glass Morphism Components
+================================ */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
 }
 
-@keyframes slide-up {
-  from {
-    transform: translateY(20px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
+.glass-dark {
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-@keyframes slide-down {
-  from {
-    transform: translateY(-20px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
+/* ================================
+   Neon Effects
+================================ */
+.neon-text {
+  text-shadow: 
+    0 0 10px currentColor,
+    0 0 20px currentColor,
+    0 0 30px currentColor;
+  animation: neon-pulse 2s ease-in-out infinite;
 }
 
-@keyframes scale-in {
-  from {
-    transform: scale(0.9);
-    opacity: 0;
-  }
-  to {
-    transform: scale(1);
-    opacity: 1;
-  }
+.neon-border {
+  position: relative;
+  border: 2px solid transparent;
+  background: linear-gradient(var(--dark-primary), var(--dark-primary)) padding-box,
+              linear-gradient(135deg, var(--neon-blue), var(--neon-purple)) border-box;
+  border-radius: 16px;
 }
 
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
+.neon-glow {
+  box-shadow: 
+    0 0 20px rgba(0, 212, 255, 0.5),
+    0 0 40px rgba(123, 97, 255, 0.3),
+    0 0 60px rgba(255, 0, 229, 0.2);
 }
 
-@keyframes bounce {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
+/* ================================
+   Gradient Text
+================================ */
+.gradient-text {
+  background: linear-gradient(135deg, var(--neon-blue) 0%, var(--neon-purple) 50%, var(--neon-pink) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-fill-color: transparent;
+}
+
+/* ================================
+   Card Swipe Animations
+================================ */
+.swipe-card {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.swipe-overlay {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+/* ================================
+   Button Styles
+================================ */
+.btn-neon {
+  position: relative;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple));
+  border-radius: 50px;
+  font-weight: 600;
+  color: white;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.btn-neon:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(123, 97, 255, 0.4);
+}
+
+.btn-neon::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s ease;
+}
+
+.btn-neon:hover::before {
+  left: 100%;
+}
+
+/* ================================
+   Loading Animations
+================================ */
+.loading-spinner {
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  border-top-color: var(--neon-blue);
+  border-right-color: var(--neon-purple);
+  animation: spin 1s linear infinite;
 }
 
 @keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+  to { transform: rotate(360deg); }
 }
 
-/* 토스트 애니메이션 */
-@keyframes toast-in {
-  from {
-    transform: translateY(-100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
+/* ================================
+   Responsive Utilities
+================================ */
+@media (max-width: 640px) {
+  .mobile-full-height {
+    height: 100vh;
+    height: -webkit-fill-available;
+    height: -moz-available;
   }
 }
 
-@keyframes toast-out {
-  from {
-    transform: translateY(0);
-    opacity: 1;
-  }
-  to {
-    transform: translateY(-100%);
-    opacity: 0;
-  }
+/* ================================
+   Toast Overrides
+================================ */
+.react-hot-toast {
+  background: var(--dark-secondary) !important;
+  color: white !important;
+  border: 1px solid var(--glass-border) !important;
+  backdrop-filter: blur(10px) !important;
 }
 
-/* 스와이프 애니메이션 - 스무스하게 개선 */
-@keyframes swipe-right {
-  from {
-    transform: translateX(0) rotate(0deg);
-    opacity: 1;
-  }
-  to {
-    transform: translateX(120%) rotate(25deg);
-    opacity: 0;
-  }
+/* ================================
+   Focus States
+================================ */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--neon-blue);
+  outline-offset: 2px;
 }
 
-@keyframes swipe-left {
-  from {
-    transform: translateX(0) rotate(0deg);
-    opacity: 1;
-  }
-  to {
-    transform: translateX(-120%) rotate(-25deg);
-    opacity: 0;
-  }
+/* ================================
+   Utility Classes
+================================ */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
-@keyframes swipe-up {
-  from {
-    transform: translateY(0);
-    opacity: 1;
-  }
-  to {
-    transform: translateY(-120%);
-    opacity: 0;
-  }
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
-.swipe-right {
-  animation: swipe-right 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+.preserve-3d {
+  transform-style: preserve-3d;
 }
 
-.swipe-left {
-  animation: swipe-left 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+.perspective-1000 {
+  perspective: 1000px;
 }
 
-.swipe-up {
-  animation: swipe-up 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-}
-
-/* 그라디언트 텍스트 */
-.gradient-text {
-  @apply bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent;
-}
-
-/* 플로팅 액션 버튼 */
-.fab {
-  @apply fixed bottom-24 right-4 w-14 h-14 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full shadow-xl flex items-center justify-center text-white;
-}
-
-/* 포트폴리오 그리드 */
-.portfolio-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 0.5rem;
-}
-
-@media (min-width: 640px) {
-  .portfolio-grid {
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 1rem;
-  }
-}
-
-/* 메시지 버블 */
-.message-bubble {
-  @apply max-w-[70%] px-4 py-2 rounded-2xl;
-}
-
-.message-bubble-sent {
-  @apply bg-purple-600 text-white ml-auto rounded-br-sm;
-}
-
-.message-bubble-received {
-  @apply bg-gray-100 text-gray-900 mr-auto rounded-bl-sm;
-}
-
-/* 알림 뱃지 애니메이션 */
-@keyframes badge-bounce {
-  0%, 100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.2);
-  }
-}
-
-.badge-bounce {
-  animation: badge-bounce 2s infinite;
-}
-
-/* 로딩 스켈레톤 */
-@keyframes skeleton-loading {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
-}
-
-.skeleton {
-  background: linear-gradient(
-    90deg,
-    #f0f0f0 25%,
-    #e0e0e0 50%,
-    #f0f0f0 75%
-  );
-  background-size: 200% 100%;
-  animation: skeleton-loading 1.5s ease-in-out infinite;
-}
-
-/* 모달 백드롭 */
-.modal-backdrop {
-  @apply fixed inset-0 bg-black/50 backdrop-blur-sm z-50;
-}
-
-/* 하단 시트 */
-.bottom-sheet {
-  @apply fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl z-50;
-}
-
-/* 카드 호버 효과 */
-.card-hover {
-  @apply transition-all duration-300 hover:shadow-xl hover:-translate-y-1;
-}
-
-/* 버튼 효과 */
-.btn-primary {
-  @apply bg-purple-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-purple-700 transition-all duration-200 active:scale-95;
-}
-
-.btn-secondary {
-  @apply bg-gray-100 text-gray-700 px-6 py-3 rounded-xl font-medium hover:bg-gray-200 transition-all duration-200 active:scale-95;
-}
-
-/* 입력 필드 스타일 */
-.input-field {
-  @apply w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition;
-}
-
-/* 유틸리티 애니메이션 클래스 */
-.animate-enter {
-  animation: scale-in 0.2s ease-out;
-}
-
-.animate-leave {
-  animation: scale-in 0.2s ease-out reverse;
-}
-
-.animate-fade {
-  animation: fade-in 0.3s ease-out;
-}
-
-.animate-slide-up {
-  animation: slide-up 0.3s ease-out;
-}
-
-.animate-slide-down {
-  animation: slide-down 0.3s ease-out;
-}
-
-/* 커스텀 스크롤 컨테이너 */
-.custom-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: #cbd5e0 transparent;
-}
-
-.custom-scroll::-webkit-scrollbar {
-  width: 4px;
-}
-
-.custom-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.custom-scroll::-webkit-scrollbar-thumb {
-  background-color: #cbd5e0;
-  border-radius: 20px;
-}
-
-/* 반응형 텍스트 크기 */
-.text-responsive {
-  @apply text-sm sm:text-base md:text-lg;
-}
-
-/* 세이프 영역 (모바일 노치 대응) */
-.safe-top {
-  padding-top: env(safe-area-inset-top);
-}
-
-.safe-bottom {
-  padding-bottom: env(safe-area-inset-bottom);
-}
-
-.safe-left {
-  padding-left: env(safe-area-inset-left);
-}
-
-.safe-right {
-  padding-right: env(safe-area-inset-right);
-}
-
-/* 프린트 스타일 */
-@media print {
-  .no-print {
-    display: none !important;
-  }
-}
-
-/* 다크모드 지원 (선택사항) */
-@media (prefers-color-scheme: dark) {
-  /* 다크모드 스타일을 여기에 추가 */
-}
-
-/* 모바일 터치 최적화 */
-@media (hover: none) {
-  .touch-action-manipulation {
-    touch-action: manipulation;
-  }
-}
-
-/* 접근성 개선 */
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border-width: 0;
-}
-
-/* 포커스 스타일 */
-.focus-visible:focus {
-  @apply outline-none ring-2 ring-purple-500 ring-offset-2;
+.backface-hidden {
+  backface-visibility: hidden;
 }
