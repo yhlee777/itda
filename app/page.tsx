@@ -45,63 +45,52 @@ export default function Home() {
       </nav>
 
       {/* Hero 섹션 */}
-      <section className="min-h-screen flex items-center justify-center relative">
-        <div className="absolute inset-0 bg-gradient-to-b from-purple-900/20 via-black to-black" />
-        
-        <div className="text-center z-10 px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-          >
-            <h1 className="text-6xl md:text-7xl font-light text-white mb-6">
-              인플루언서 마케팅
-            </h1>
-            <p className="text-2xl md:text-3xl text-purple-400 font-light mb-8">
-              틴더처럼 쉽게
-            </p>
-            <p className="text-white/60 text-lg max-w-2xl mx-auto mb-12">
-              복잡한 DM과 협상은 그만. <br/>
-              스와이프 한 번으로 인플루언서와 브랜드를 연결합니다.
-            </p>
-          </motion.div>
+      <section className="min-h-screen flex items-center justify-center relative px-4 md:px-8">
+  <div className="absolute inset-0 bg-gradient-to-b from-purple-900/20 via-black to-black" />
+  
+  <div className="text-center z-10 w-full max-w-4xl">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6 }}
+    >
+      <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-light text-white mb-4 md:mb-6 break-keep">
+        인플루언서 마케팅
+      </h1>
+      <p className="text-xl sm:text-2xl md:text-3xl text-purple-400 font-light mb-4 md:mb-8">
+        틴더처럼 쉽게
+      </p>
+      <p className="text-white/60 text-base sm:text-lg max-w-2xl mx-auto mb-8 md:mb-12 px-4">
+        복잡한 DM과 협상은 그만. <br className="sm:hidden" />
+        <span className="block sm:inline">스와이프 한 번으로 인플루언서와 브랜드를 연결합니다.</span>
+      </p>
+    </motion.div>
 
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.3 }}
-            className="flex gap-4 justify-center"
-          >
-            <Link href="/demo">
-              <motion.button 
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:shadow-lg hover:shadow-purple-600/25 transition-all"
-              >
-                인플루언서로 시작
-              </motion.button>
-            </Link>
-            
-            <button 
-              onClick={() => alert('광고주 서비스는 11월 30일 오픈 예정입니다')}
-              className="px-8 py-4 bg-white/10 text-white/50 rounded-lg cursor-not-allowed"
-            >
-              광고주로 시작
-            </button>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.6 }}
-            className="mt-8"
-          >
-            <p className="text-orange-400 text-sm">
-              🔥 선착순 100명 평생 수수료 0%
-            </p>
-          </motion.div>
-        </div>
-      </section>
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.3 }}
+      className="flex flex-col sm:flex-row gap-4 justify-center items-center px-4"
+    >
+      <Link href="/demo" className="w-full sm:w-auto">
+        <motion.button 
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:shadow-lg hover:shadow-purple-600/25 transition-all"
+        >
+          인플루언서로 시작
+        </motion.button>
+      </Link>
+      
+      <button 
+        onClick={() => alert('광고주 서비스는 11월 30일 오픈 예정입니다')}
+        className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 bg-white/10 text-white/50 rounded-lg cursor-not-allowed"
+      >
+        광고주로 시작
+      </button>
+    </motion.div>
+  </div>
+</section>
 
       {/* 작동 방식 */}
       <section className="min-h-screen flex items-center justify-center px-8">

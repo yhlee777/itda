@@ -92,3 +92,45 @@ section {
   font-weight: 100;
   line-height: 1.1;
 }
+/* 모바일 최적화 추가 */
+@media (max-width: 768px) {
+  /* Hero 텍스트 수정 */
+  .hero-text {
+    @apply text-4xl !important;
+    line-height: 1.2 !important;
+  }
+
+  /* 모든 섹션 패딩 조정 */
+  section {
+    @apply px-4 !important;
+  }
+
+  /* 버튼 크기 조정 */
+  button {
+    @apply text-sm !important;
+  }
+  
+  /* 네비게이션 수정 */
+  nav {
+    @apply px-4 py-4 !important;
+  }
+
+  /* 카드 크기 조정 */
+  .swipe-card {
+    width: calc(100vw - 32px) !important;
+    max-width: 350px !important;
+    height: 70vh !important;
+    max-height: 600px !important;
+  }
+}
+
+/* 아이폰 노치 대응 */
+@supports (padding-top: env(safe-area-inset-top)) {
+  nav {
+    padding-top: calc(1rem + env(safe-area-inset-top));
+  }
+  
+  main {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}

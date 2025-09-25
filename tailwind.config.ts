@@ -8,6 +8,13 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      screens: {
+        'xs': '375px',  // 작은 폰
+        'sm': '640px',  // 기본
+        'md': '768px',  // 태블릿
+        'lg': '1024px', // 데스크탑
+        'xl': '1280px', // 큰 화면
+      },
       fontFamily: {
         'apple': ['-apple-system', 'BlinkMacSystemFont', 'Apple SD Gothic Neo', 'Pretendard', 'sans-serif'],
       },
