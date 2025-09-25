@@ -1,246 +1,221 @@
-
-// app/page.tsx
 'use client';
 
-import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { 
-  Sparkles, Users, Shield, Zap,
-  ArrowRight, CheckCircle, Menu, X
-} from 'lucide-react';
+import { motion } from 'framer-motion';
 
-export default function LandingPage() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+export default function Home() {
+  const [hoveredCard, setHoveredCard] = useState<number | null>(null);
+  const [mounted, setMounted] = useState(false);
+  
+  // 클라이언트 마운트 체크
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
-  const features = [
-    {
-      icon: Zap,
-      title: '빠른 매칭',
-      description: '스와이프로 즉시 연결'
-    },
-    {
-      icon: Shield,
-      title: '안전한 거래',
-      description: '검증된 시스템으로 보호'
-    },
-    {
-      icon: Users,
-      title: 'AI 추천',
-      description: '완벽한 파트너 매칭'
-    }
-  ];
+  // 서버 렌더링 중엔 로딩 표시
+  if (!mounted) {
+    return (
+      <main className="bg-black min-h-screen flex items-center justify-center">
+        <div className="text-white">Loading...</div>
+      </main>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* 심플 네비게이션 */}
-      <nav className="fixed w-full z-50 bg-white/90 backdrop-blur-sm border-b">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-7 h-7 text-purple-600" />
-              <span className="text-xl font-bold">ITDA</span>
-            </div>
-
-            <div className="hidden md:flex items-center gap-6">
-              <Link href="/login" className="text-gray-600 hover:text-gray-900 text-sm">
-                로그인
-              </Link>
-              <Link href="/register">
-                <button className="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full text-sm font-medium hover:shadow-lg transform hover:scale-105 transition-all">
-                  시작하기
-                </button>
-              </Link>
-            </div>
-
-            <button
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="md:hidden p-2"
+    <main className="bg-black min-h-screen">
+      {/* 네비게이션 */}
+      <nav className="fixed top-0 w-full z-50 backdrop-blur-md bg-black/50 border-b border-white/10">
+        <div className="flex justify-between items-center px-8 py-6">
+          <h1 className="text-xl font-light tracking-wide text-white">itda</h1>
+          <div className="flex gap-6">
+            <Link href="/demo">
+              <button className="px-6 py-2 text-sm text-purple-400 hover:text-purple-300 transition-all">
+                인플루언서
+              </button>
+            </Link>
+            <button 
+              onClick={() => alert('광고주 서비스는 준비중입니다')}
+              className="px-6 py-2 text-sm text-white/50 cursor-not-allowed"
             >
-              {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
+              광고주
             </button>
           </div>
         </div>
-
-        {/* 모바일 메뉴 */}
-        {isMenuOpen && (
-          <div className="md:hidden bg-white border-t">
-            <div className="container mx-auto px-4 py-4 space-y-3">
-              <Link href="/register" className="block">
-                <button className="w-full px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full font-medium">
-                  무료로 시작하기
-                </button>
-              </Link>
-              <Link href="/login" className="block text-center py-2 text-gray-600 text-sm">
-                이미 계정이 있으신가요? 로그인
-              </Link>
-            </div>
-          </div>
-        )}
       </nav>
 
-      {/* 히어로 섹션 - 심플 */}
-      <section className="pt-32 pb-20 px-4">
-        <div className="container mx-auto max-w-4xl">
+      {/* Hero 섹션 */}
+      <section className="min-h-screen flex items-center justify-center relative">
+        <div className="absolute inset-0 bg-gradient-to-b from-purple-900/20 via-black to-black" />
+        
+        <div className="text-center z-10 px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-center"
+            transition={{ duration: 0.6 }}
           >
-            {/* 메인 타이틀 */}
-            <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
+            <h1 className="text-6xl md:text-7xl font-light text-white mb-6">
               인플루언서 마케팅
-              <span className="block text-purple-600">더 쉽게, 더 빠르게</span>
             </h1>
-            
-            <p className="text-lg md:text-xl text-gray-600 mb-10 max-w-2xl mx-auto">
-              복잡한 과정 없이 AI가 최적의 파트너를 매칭해드립니다.
-              지금 시작하고 성과를 경험하세요.
+            <p className="text-2xl md:text-3xl text-purple-400 font-light mb-8">
+              틴더처럼 쉽게
             </p>
-            
-            {/* CTA 버튼 - 하나만 가운데 */}
-            <div className="flex justify-center mb-12">
-              <Link href="/register">
-                <button className="px-10 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full font-semibold text-lg hover:shadow-xl transform hover:scale-105 transition-all flex items-center gap-2">
-                  무료로 시작하기
-                  <ArrowRight className="w-5 h-5" />
-                </button>
-              </Link>
-            </div>
+            <p className="text-white/60 text-lg max-w-2xl mx-auto mb-12">
+              복잡한 DM과 협상은 그만. <br/>
+              스와이프 한 번으로 인플루언서와 브랜드를 연결합니다.
+            </p>
+          </motion.div>
 
-            {/* 간단한 통계 */}
-            <div className="flex items-center justify-center gap-8 text-sm text-gray-600">
-              <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-green-500" />
-                <span>50K+ 활성 사용자</span>
-              </div>
-              <div className="hidden sm:flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-green-500" />
-                <span>98% 매칭 성공률</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-green-500" />
-                <span>수수료 0%</span>
-              </div>
-            </div>
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+            className="flex gap-4 justify-center"
+          >
+            <Link href="/demo">
+              <motion.button 
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:shadow-lg hover:shadow-purple-600/25 transition-all"
+              >
+                인플루언서로 시작
+              </motion.button>
+            </Link>
+            
+            <button 
+              onClick={() => alert('광고주 서비스는 11월 30일 오픈 예정입니다')}
+              className="px-8 py-4 bg-white/10 text-white/50 rounded-lg cursor-not-allowed"
+            >
+              광고주로 시작
+            </button>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.6 }}
+            className="mt-8"
+          >
+            <p className="text-orange-400 text-sm">
+              🔥 선착순 100명 평생 수수료 0%
+            </p>
           </motion.div>
         </div>
       </section>
 
-      {/* 핵심 기능 - 컴팩트 */}
-      <section className="py-16 bg-gray-50">
-        <div className="container mx-auto px-4 max-w-4xl">
-          <h2 className="text-2xl md:text-3xl font-bold text-center mb-12">
-            왜 ITDA인가요?
+      {/* 작동 방식 */}
+      <section className="min-h-screen flex items-center justify-center px-8">
+        <div className="max-w-6xl w-full">
+          <h2 className="text-3xl md:text-4xl text-center text-white mb-16 font-light">
+            어떻게 작동하나요?
           </h2>
           
           <div className="grid md:grid-cols-3 gap-8">
-            {features.map((feature, index) => (
+            {[
+              {
+                icon: "👆",
+                title: "스와이프",
+                desc: "마음에 드는 캠페인을 오른쪽으로",
+                detail: "틴더처럼 직관적인 UI"
+              },
+              {
+                icon: "⚡",
+                title: "즉시 매칭",
+                desc: "AI가 최적의 매칭을 찾아드려요",
+                detail: "평균 18시간 내 응답"
+              },
+              {
+                icon: "💰",
+                title: "바로 시작",
+                desc: "복잡한 계약 없이 바로 진행",
+                detail: "직거래, 수수료 0%"
+              }
+            ].map((item, i) => (
               <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                viewport={{ once: true }}
-                className="text-center"
+                key={i}
+                whileHover={{ y: -10, scale: 1.02 }}
+                onHoverStart={() => setHoveredCard(i)}
+                onHoverEnd={() => setHoveredCard(null)}
+                className="bg-white/5 backdrop-blur-sm rounded-2xl p-8 border border-white/10 hover:border-purple-500/50 transition-all"
               >
-                <div className="w-14 h-14 bg-purple-100 rounded-xl flex items-center justify-center mx-auto mb-4">
-                  <feature.icon className="w-7 h-7 text-purple-600" />
-                </div>
-                <h3 className="font-semibold text-lg mb-2">{feature.title}</h3>
-                <p className="text-gray-600 text-sm">{feature.description}</p>
+                <div className="text-5xl mb-4">{item.icon}</div>
+                <h3 className="text-xl text-white mb-2">{item.title}</h3>
+                <p className="text-white/60 text-sm mb-2">{item.desc}</p>
+                <motion.p
+                  animate={{ opacity: hoveredCard === i ? 1 : 0 }}
+                  className="text-purple-400 text-xs"
+                >
+                  {item.detail}
+                </motion.p>
               </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* 사용자 타입 선택 */}
-      <section className="py-16 bg-white">
-        <div className="container mx-auto px-4 max-w-3xl">
-          <h2 className="text-2xl md:text-3xl font-bold text-center mb-12">
-            어떤 분이신가요?
+      {/* 숫자로 보는 성과 */}
+      <section className="min-h-screen flex items-center justify-center px-8 bg-white text-black">
+        <div className="max-w-6xl w-full">
+          <h2 className="text-3xl md:text-4xl text-center mb-16 font-light">
+            빠르게 성장 중
           </h2>
-          
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* 인플루언서 카드 */}
-            <Link href="/register?type=influencer">
+          <div className="grid md:grid-cols-4 gap-8 text-center">
+            {[
+              { num: "1,847", label: "인플루언서" },
+              { num: "83", label: "대기중인 캠페인" },
+              { num: "294", label: "성사된 매칭" },
+              { num: "18시간", label: "평균 매칭시간" }
+            ].map((stat, i) => (
               <motion.div
-                whileHover={{ y: -5 }}
-                className="p-6 border-2 border-gray-200 rounded-xl hover:border-purple-400 cursor-pointer transition-all h-full"
+                key={i}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.1 }}
               >
-                <div className="text-4xl mb-4">📸</div>
-                <h3 className="text-xl font-bold mb-2">인플루언서</h3>
-                <p className="text-gray-600 text-sm mb-4">
-                  브랜드와 협업하고 수익을 창출하세요
-                </p>
-                <ul className="space-y-2 text-sm text-gray-600">
-                  <li>✓ 간편한 캠페인 지원</li>
-                  <li>✓ 실시간 매칭</li>
-                  <li>✓ 안전한 정산</li>
-                </ul>
+                <div className="text-4xl md:text-5xl font-light text-purple-600 mb-2">
+                  {stat.num}
+                </div>
+                <div className="text-sm text-black/60">{stat.label}</div>
               </motion.div>
-            </Link>
-
-            {/* 광고주 카드 */}
-            <Link href="/register?type=advertiser">
-              <motion.div
-                whileHover={{ y: -5 }}
-                className="p-6 border-2 border-gray-200 rounded-xl hover:border-purple-400 cursor-pointer transition-all h-full"
-              >
-                <div className="text-4xl mb-4">🏢</div>
-                <h3 className="text-xl font-bold mb-2">광고주</h3>
-                <p className="text-gray-600 text-sm mb-4">
-                  완벽한 인플루언서를 찾아보세요
-                </p>
-                <ul className="space-y-2 text-sm text-gray-600">
-                  <li>✓ AI 추천 시스템</li>
-                  <li>✓ 실시간 성과 분석</li>
-                  <li>✓ 간편한 계약</li>
-                </ul>
-              </motion.div>
-            </Link>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* 심플 CTA */}
-      <section className="py-20 bg-gradient-to-br from-purple-50 to-pink-50">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4">
-            지금 바로 시작하세요
+      {/* 최종 CTA */}
+      <section className="min-h-screen flex items-center justify-center px-8">
+        <div className="text-center">
+          <h2 className="text-4xl md:text-5xl text-white mb-8 font-light">
+            지금 시작하세요
           </h2>
-          <p className="text-gray-600 mb-8">
-            복잡한 절차 없이 1분 만에 가입 완료
+          <p className="text-white/60 text-lg mb-12">
+            3분만에 시작할 수 있어요
           </p>
-          <Link href="/register">
-            <button className="px-10 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full font-semibold text-lg hover:shadow-xl transform hover:scale-105 transition-all inline-flex items-center gap-2">
-              무료로 시작하기
-              <ArrowRight className="w-5 h-5" />
-            </button>
+          
+          <Link href="/demo">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="px-12 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full text-lg hover:shadow-lg hover:shadow-purple-600/25 transition-all"
+            >
+              체험해보기
+            </motion.button>
           </Link>
         </div>
       </section>
 
-      {/* 미니멀 푸터 */}
-      <footer className="py-8 bg-gray-900">
-        <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row items-center justify-between">
-            <div className="flex items-center gap-2 mb-4 md:mb-0">
-              <Sparkles className="w-5 h-5 text-purple-400" />
-              <span className="text-white font-semibold">ITDA</span>
-            </div>
-            <div className="flex gap-6 text-sm text-gray-400">
-              <Link href="#" className="hover:text-white">이용약관</Link>
-              <Link href="#" className="hover:text-white">개인정보처리방침</Link>
-              <Link href="#" className="hover:text-white">문의</Link>
-            </div>
+      {/* Footer */}
+      <footer className="py-12 px-8 border-t border-white/10">
+        <div className="max-w-6xl mx-auto flex justify-between items-center">
+          <div className="text-white/40 text-sm">
+            © 2024 itda. All rights reserved.
           </div>
-          <div className="text-center text-gray-500 text-xs mt-4">
-            © 2024 ITDA. All rights reserved.
+          <div className="flex gap-6 text-white/40 text-sm">
+            <Link href="/terms" className="hover:text-white transition">이용약관</Link>
+            <Link href="/privacy" className="hover:text-white transition">개인정보처리방침</Link>
           </div>
         </div>
       </footer>
-    </div>
+    </main>
   );
 }

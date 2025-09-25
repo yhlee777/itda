@@ -1,252 +1,94 @@
-/* app/globals.css */
-@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable.css');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  /* ITDA 보라색 테마 */
-  --primary: 276 91% 58%; /* 보라색 */
-  --primary-foreground: 0 0% 100%;
-  --secondary: 330 81% 60%; /* 핑크색 */
-  --secondary-foreground: 0 0% 100%;
-  --background: 0 0% 100%;
-  --foreground: 240 10% 3.9%;
-  --muted: 240 4.8% 95.9%;
-  --accent: 276 91% 95%; /* 연보라 */
-  --border: 276 30% 90%;
-  --ring: 276 91% 58%;
-  
-  /* 그라데이션 */
-  --gradient-start: #9333ea; /* purple-600 */
-  --gradient-end: #ec4899; /* pink-600 */
-}
+/* Apple + Korean 폰트 최적화 */
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard-dynamic-subset.css');
 
+/* Jobs Style Base */
 * {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 html {
   scroll-behavior: smooth;
-  -webkit-text-size-adjust: 100%;
-  text-size-adjust: 100%;
+  scroll-snap-type: y mandatory;
 }
 
-body {
-  font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', sans-serif;
-  line-height: 1.6;
-  color: #1a1a1a;
-  background: linear-gradient(to bottom right, #faf5ff, #ffffff, #fdf2f8);
-  min-height: 100vh;
-  overflow-x: hidden;
-  position: relative;
+section {
+  scroll-snap-align: start;
 }
 
-/* 모바일 뷰포트 최적화 */
-@supports (-webkit-touch-callout: none) {
-  /* iOS 전용 */
-  .h-screen {
-    height: 100vh;
-    height: -webkit-fill-available;
+/* 커스텀 클래스 */
+@layer components {
+  .hero-text {
+    @apply text-6xl md:text-8xl lg:text-9xl font-thin tracking-tight;
+    font-family: 'Pretendard', -apple-system, sans-serif;
+    font-weight: 100;
+    letter-spacing: -0.05em;
   }
-  
-  body {
-    min-height: 100vh;
-    min-height: -webkit-fill-available;
+
+  .glass-effect {
+    @apply backdrop-blur-xl bg-white/5 border border-white/10;
   }
-}
 
-/* 안드로이드 전용 */
-@media screen and (max-width: 768px) {
-  html, body {
-    overflow-x: hidden;
-    width: 100%;
+  .glow-text {
+    text-shadow: 0 0 40px rgba(255, 255, 255, 0.5);
   }
-  
-  /* 카드 컨테이너 조정 */
-  main {
-    padding-left: 0.5rem !important;
-    padding-right: 0.5rem !important;
+
+  .magic-button {
+    @apply relative overflow-hidden;
   }
-  
-  /* 카드 크기 조정 */
-  .max-w-lg {
-    max-width: calc(100vw - 1rem);
-  }
-  
-  /* 버튼 위치 조정 */
-  .fixed.bottom-20 {
-    bottom: 5rem !important;
-  }
-  
-  /* 네비게이션 바 고정 */
-  nav.fixed {
-    position: fixed !important;
-    bottom: 0 !important;
-    width: 100% !important;
-  }
-}
 
-/* 한글 타이포그래피 최적화 */
-h1, h2, h3, h4, h5, h6 {
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  word-break: keep-all;
-}
-
-p {
-  word-break: keep-all;
-  line-height: 1.8;
-}
-
-/* ITDA 브랜드 그라데이션 */
-.gradient-text {
-  background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.gradient-bg {
-  background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
-}
-
-/* 버튼 스타일 */
-button {
-  font-family: inherit;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
-
-/* 카드 그림자 효과 */
-.card-shadow {
-  box-shadow: 0 20px 25px -5px rgba(147, 51, 234, 0.1), 
-              0 10px 10px -5px rgba(147, 51, 234, 0.04);
-}
-
-/* 인풋 스타일 */
-input, textarea, select {
-  font-family: inherit;
-  font-size: 16px; /* iOS 줌 방지 */
-}
-
-/* 스와이프 카드 애니메이션 */
-@keyframes slideUp {
-  from {
-    transform: translateY(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-@keyframes bounce {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
-}
-
-/* 로딩 애니메이션 */
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.animate-spin-slow {
-  animation: spin 3s linear infinite;
-}
-
-/* 스크롤바 커스텀 */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: #f1f1f1;
-}
-
-::-webkit-scrollbar-thumb {
-  background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--gradient-start);
-}
-
-/* 모바일 탭 하이라이트 제거 */
-* {
-  -webkit-tap-highlight-color: transparent;
-}
-
-/* Safe Area 대응 (iPhone X+) */
-@supports (padding: max(0px)) {
-  .safe-bottom {
-    padding-bottom: max(1rem, env(safe-area-inset-bottom));
-  }
-  
-  .safe-top {
-    padding-top: max(1rem, env(safe-area-inset-top));
-  }
-}
-
-/* 반응형 폰트 크기 */
-@media (max-width: 640px) {
-  html {
-    font-size: 15px;
-  }
-  
-  h1 {
-    font-size: 1.75rem;
-  }
-  
-  h2 {
-    font-size: 1.5rem;
-  }
-  
-  .text-2xl {
-    font-size: 1.5rem;
-  }
-  
-  .text-xl {
-    font-size: 1.25rem;
-  }
-}
-
-/* 다크모드 비활성화 */
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: light;
-  }
-}
-/* 모바일 반응형 심플 버전 */
-@media screen and (max-width: 480px) {
-  /* 헤더 고정 */
-  header {
-    position: fixed !important;
+  .magic-button::before {
+    content: '';
+    position: absolute;
     top: 0;
+    left: -100%;
     width: 100%;
-    z-index: 50;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s;
   }
-  
-  /* 메인 패딩 조정 */
-  main {
-    padding-top: 60px;
+
+  .magic-button:hover::before {
+    left: 100%;
   }
-  
-  /* 카드 크기 자동 조정 */
-  .w-full {
-    max-width: calc(100vw - 16px);
-  }
+}
+
+/* 그라디언트 오버레이 */
+.gradient-overlay {
+  background: linear-gradient(180deg, 
+    rgba(0,0,0,0) 0%, 
+    rgba(0,0,0,0.8) 100%);
+}
+
+/* 애플 스타일 버튼 */
+.apple-button {
+  @apply px-8 py-3 rounded-full text-sm font-medium;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.apple-button:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.05);
+}
+
+/* 네온 효과 (너의 스타일) */
+.neon-purple {
+  box-shadow: 
+    0 0 20px rgba(147, 51, 234, 0.5),
+    0 0 40px rgba(147, 51, 234, 0.3),
+    0 0 60px rgba(147, 51, 234, 0.1);
+}
+
+/* 타이포그래피 */
+.display-font {
+  font-family: 'Pretendard', -apple-system, sans-serif;
+  font-weight: 100;
+  line-height: 1.1;
 }
