@@ -198,8 +198,8 @@ export default function CampaignsPage() {
   const currentCampaign = campaigns[currentIndex];
 
   return (
-    <div className="h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50 overflow-hidden flex flex-col">
-      {/* 헤더 - 더 슬림하게 */}
+    <div className="h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50 flex flex-col">
+      {/* 헤더 */}
       <header className="bg-white/90 backdrop-blur-md border-b">
         <div className="px-4 py-2 flex justify-between items-center">
           <h1 className="text-2xl font-black bg-gradient-to-r from-purple-600 to-pink-600 text-transparent bg-clip-text">
@@ -216,34 +216,35 @@ export default function CampaignsPage() {
         </div>
       </header>
 
-      {/* 메인 컨텐츠 - 액션 버튼 포함 */}
-      <main className="flex-1 relative overflow-hidden pb-4">
+      {/* 메인 컨텐츠 */}
+      <main className="flex-1 overflow-hidden">
         {isLoading ? (
-          <LoadingState />
+          <div className="h-full flex items-center justify-center">
+            <LoadingState />
+          </div>
         ) : dailyLimitReached ? (
-          <DailyLimitState />
+          <div className="h-full flex items-center justify-center">
+            <DailyLimitState />
+          </div>
         ) : currentCampaign ? (
-          <div className="h-full w-full flex flex-col">
-            {/* 카드 영역 */}
-            <div className="flex-1">
-              <SwipeableCard 
-                campaign={currentCampaign}
-                onSwipe={handleSwipeAction}
-                isProcessing={isProcessing}
-                exitX={exitX}
-                exitY={exitY}
-                onShowDetails={() => setShowDetails(true)}
-              />
-            </div>
+          <div className="h-full relative">
+            <SwipeableCard 
+              campaign={currentCampaign}
+              onSwipe={handleSwipeAction}
+              isProcessing={isProcessing}
+              exitX={exitX}
+              exitY={exitY}
+              onShowDetails={() => setShowDetails(true)}
+            />
             
-            {/* 액션 버튼 - 카드 바로 아래 */}
-            <div className="flex justify-center gap-4 px-4">
+            {/* 액션 버튼 - 카드 위에 오버레이 */}
+            <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-4 px-4">
               <motion.button
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={() => handleSwipeAction('pass')}
                 disabled={isProcessing}
-                className="w-14 h-14 bg-white rounded-full shadow-lg border flex items-center justify-center"
+                className="w-14 h-14 bg-white rounded-full shadow-xl flex items-center justify-center"
               >
                 <X className="w-7 h-7 text-red-500" />
               </motion.button>
@@ -263,36 +264,18 @@ export default function CampaignsPage() {
                 whileTap={{ scale: 0.9 }}
                 onClick={() => handleSwipeAction('like')}
                 disabled={isProcessing}
-                className="w-14 h-14 bg-white rounded-full shadow-lg border flex items-center justify-center"
+                className="w-14 h-14 bg-white rounded-full shadow-lg flex items-center justify-center"
               >
                 <Heart className="w-7 h-7 text-green-500" />
               </motion.button>
             </div>
           </div>
         ) : (
-          <EmptyState onRefresh={loadCampaigns} />
+          <div className="h-full flex items-center justify-center">
+            <EmptyState onRefresh={loadCampaigns} />
+          </div>
         )}
       </main>
-
-      {/* 하단 네비게이션 바 - 하나만! */}
-      <nav className="bg-white border-t">
-        <div className="px-4 py-2">
-          <div className="flex justify-around">
-            <button className="p-2 text-purple-600">
-              <Home className="w-6 h-6" />
-            </button>
-            <button className="p-2 text-gray-400">
-              <Search className="w-6 h-6" />
-            </button>
-            <button className="p-2 text-gray-400">
-              <MessageCircle className="w-6 h-6" />
-            </button>
-            <button className="p-2 text-gray-400">
-              <User className="w-6 h-6" />
-            </button>
-          </div>
-        </div>
-      </nav>
 
       {/* 상세 모달 */}
       <AnimatePresence>
@@ -364,7 +347,7 @@ function SwipeableCard({
       onDragEnd={handleDragEnd}
       animate={exitX !== 0 || exitY !== 0 ? { x: exitX, y: exitY, opacity: 0 } : { x: 0, y: 0 }}
       transition={{ type: "spring", stiffness: 500, damping: 40 }}
-      className="h-full w-full px-3 pt-3 cursor-grab active:cursor-grabbing"
+      className="h-full w-full p-3 cursor-grab active:cursor-grabbing"
     >
       <div className="h-full bg-white rounded-3xl overflow-hidden shadow-2xl flex flex-col">
         {/* 이미지 영역 - 화면의 45% */}
