@@ -4,7 +4,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { 
   X, Heart, Star, Sparkles, Users, DollarSign, Calendar, 
   TrendingUp, ChevronUp, Building2, Zap, Target, Megaphone,
-  Bell, Home, Search, MessageCircle, User, Clock, Info, MapPin
+  Bell, Home, Search, MessageCircle, User, Clock, Info, MapPin,
+  Award, Flame
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'react-hot-toast';
@@ -14,23 +15,22 @@ import { motion, AnimatePresence, PanInfo, useMotionValue, useTransform } from '
 type Campaign = Database['public']['Tables']['campaigns']['Row'];
 type Advertiser = Database['public']['Tables']['advertisers']['Row'];
 
-// 타입 수정: advertisers는 단수가 아니라 advertiser여야 함
 interface CampaignWithAdvertiser extends Campaign {
   advertiser?: Advertiser | null;
 }
 
 const categoryImages: Record<string, string> = {
-  tech: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=800&h=400&fit=crop',
-  beauty: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=800&h=400&fit=crop',
-  fashion: 'https://images.unsplash.com/photo-1558769132-cb1aea458c5e?w=800&h=400&fit=crop',
-  food: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&h=400&fit=crop',
-  sports: 'https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?w=800&h=400&fit=crop',
-  lifestyle: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=400&fit=crop',
-  gaming: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=800&h=400&fit=crop',
-  music: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=800&h=400&fit=crop',
-  travel: 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&h=400&fit=crop',
-  automotive: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=800&h=400&fit=crop',
-  default: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?w=800&h=400&fit=crop'
+  tech: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=800&h=600&fit=crop',
+  beauty: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=800&h=600&fit=crop',
+  fashion: 'https://images.unsplash.com/photo-1558769132-cb1aea458c5e?w=800&h=600&fit=crop',
+  food: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&h=600&fit=crop',
+  sports: 'https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?w=800&h=600&fit=crop',
+  lifestyle: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=600&fit=crop',
+  gaming: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=800&h=600&fit=crop',
+  music: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=800&h=600&fit=crop',
+  travel: 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&h=600&fit=crop',
+  automotive: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=800&h=600&fit=crop',
+  default: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?w=800&h=600&fit=crop'
 };
 
 const categoryLabels: Record<string, string> = {
@@ -198,11 +198,11 @@ export default function CampaignsPage() {
   const currentCampaign = campaigns[currentIndex];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50">
-      {/* 헤더 */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-b">
-        <div className="w-full px-4 py-3 flex justify-between items-center">
-          <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 text-transparent bg-clip-text">
+    <div className="h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50 overflow-hidden flex flex-col">
+      {/* 헤더 - 더 슬림하게 */}
+      <header className="bg-white/90 backdrop-blur-md border-b">
+        <div className="px-4 py-2 flex justify-between items-center">
+          <h1 className="text-2xl font-black bg-gradient-to-r from-purple-600 to-pink-600 text-transparent bg-clip-text">
             ITDA
           </h1>
           <div className="flex items-center gap-2">
@@ -216,15 +216,16 @@ export default function CampaignsPage() {
         </div>
       </header>
 
-      {/* 메인 */}
-      <main className="pt-16 px-2 pb-20">
-        <div className="w-full max-w-sm mx-auto min-h-[calc(100vh-136px)] flex items-center justify-center">
-          {isLoading ? (
-            <LoadingState />
-          ) : dailyLimitReached ? (
-            <DailyLimitState />
-          ) : currentCampaign ? (
-            <div className="relative w-full">
+      {/* 메인 컨텐츠 - 액션 버튼 포함 */}
+      <main className="flex-1 relative overflow-hidden pb-4">
+        {isLoading ? (
+          <LoadingState />
+        ) : dailyLimitReached ? (
+          <DailyLimitState />
+        ) : currentCampaign ? (
+          <div className="h-full w-full flex flex-col">
+            {/* 카드 영역 */}
+            <div className="flex-1">
               <SwipeableCard 
                 campaign={currentCampaign}
                 onSwipe={handleSwipeAction}
@@ -234,51 +235,47 @@ export default function CampaignsPage() {
                 onShowDetails={() => setShowDetails(true)}
               />
             </div>
-          ) : (
-            <EmptyState onRefresh={loadCampaigns} />
-          )}
-        </div>
+            
+            {/* 액션 버튼 - 카드 바로 아래 */}
+            <div className="flex justify-center gap-4 px-4">
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => handleSwipeAction('pass')}
+                disabled={isProcessing}
+                className="w-14 h-14 bg-white rounded-full shadow-lg border flex items-center justify-center"
+              >
+                <X className="w-7 h-7 text-red-500" />
+              </motion.button>
+
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => handleSwipeAction('super_like')}
+                disabled={isProcessing}
+                className="w-16 h-16 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full shadow-xl flex items-center justify-center"
+              >
+                <Star className="w-8 h-8 text-white" fill="white" />
+              </motion.button>
+
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => handleSwipeAction('like')}
+                disabled={isProcessing}
+                className="w-14 h-14 bg-white rounded-full shadow-lg border flex items-center justify-center"
+              >
+                <Heart className="w-7 h-7 text-green-500" />
+              </motion.button>
+            </div>
+          </div>
+        ) : (
+          <EmptyState onRefresh={loadCampaigns} />
+        )}
       </main>
 
-      {/* 액션 버튼 */}
-      {currentCampaign && !dailyLimitReached && !showDetails && (
-        <div className="fixed bottom-20 left-0 right-0 z-40">
-          <div className="flex justify-center gap-4">
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={() => handleSwipeAction('pass')}
-              disabled={isProcessing}
-              className="w-14 h-14 bg-white rounded-full shadow-lg flex items-center justify-center"
-            >
-              <X className="w-7 h-7 text-red-500" />
-            </motion.button>
-
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={() => handleSwipeAction('super_like')}
-              disabled={isProcessing}
-              className="w-16 h-16 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full shadow-xl flex items-center justify-center"
-            >
-              <Star className="w-8 h-8 text-white" fill="white" />
-            </motion.button>
-
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={() => handleSwipeAction('like')}
-              disabled={isProcessing}
-              className="w-14 h-14 bg-white rounded-full shadow-lg flex items-center justify-center"
-            >
-              <Heart className="w-7 h-7 text-green-500" />
-            </motion.button>
-          </div>
-        </div>
-      )}
-
-      {/* 하단 네비 */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t z-30">
+      {/* 하단 네비게이션 바 - 하나만! */}
+      <nav className="bg-white border-t">
         <div className="px-4 py-2">
           <div className="flex justify-around">
             <button className="p-2 text-purple-600">
@@ -312,7 +309,7 @@ export default function CampaignsPage() {
   );
 }
 
-// 개선된 스와이프 카드
+// 매력적인 스와이프 카드
 function SwipeableCard({ 
   campaign, 
   onSwipe, 
@@ -339,8 +336,9 @@ function SwipeableCard({
 
   const formatBudget = (budget: number | null) => {
     if (!budget) return '협의';
-    if (budget >= 10000000) return `${(budget / 10000000).toFixed(0)}천만원`;
-    if (budget >= 1000000) return `${(budget / 1000000).toFixed(0)}백만원`;
+    if (budget >= 100000000) return `${(budget / 100000000).toFixed(1)}억`;
+    if (budget >= 10000000) return `${(budget / 10000000).toFixed(0)}천만`;
+    if (budget >= 1000000) return `${(budget / 1000000).toFixed(0)}백만`;
     return `${(budget / 10000).toFixed(0)}만원`;
   };
 
@@ -350,30 +348,11 @@ function SwipeableCard({
     return days > 0 ? days : 0;
   };
 
-  const getLocation = () => {
-    // metadata에서 location 가져오기 시도
-    if (campaign.metadata && typeof campaign.metadata === 'object' && 'location' in campaign.metadata) {
-      return (campaign.metadata as any).location;
-    }
-    // target_audience에서 가져오기 시도
-    if (campaign.target_audience && typeof campaign.target_audience === 'object' && 'location' in campaign.target_audience) {
-      return (campaign.target_audience as any).location;
-    }
-    return '서울/수도권';
-  };
-
-  const getDuration = () => {
-    // campaign.duration이 없으면 날짜 계산
-    if (campaign.start_date && campaign.end_date) {
-      const start = new Date(campaign.start_date);
-      const end = new Date(campaign.end_date);
-      const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-      if (days <= 7) return '1주';
-      if (days <= 14) return '2주';
-      if (days <= 30) return '1개월';
-      return `${Math.ceil(days / 30)}개월`;
-    }
-    return '2주';
+  const getUrgencyColor = (days: number | null) => {
+    if (!days) return 'text-gray-600';
+    if (days <= 3) return 'text-red-500';
+    if (days <= 7) return 'text-orange-500';
+    return 'text-gray-600';
   };
   
   return (
@@ -385,120 +364,132 @@ function SwipeableCard({
       onDragEnd={handleDragEnd}
       animate={exitX !== 0 || exitY !== 0 ? { x: exitX, y: exitY, opacity: 0 } : { x: 0, y: 0 }}
       transition={{ type: "spring", stiffness: 500, damping: 40 }}
-      className="w-full cursor-grab active:cursor-grabbing"
+      className="h-full w-full px-3 pt-3 cursor-grab active:cursor-grabbing"
     >
-      <div className="bg-white rounded-2xl overflow-hidden shadow-xl">
-        {/* 프리미엄 뱃지 */}
-        {campaign.is_premium && (
-          <div className="absolute top-3 right-3 z-20 px-2.5 py-1 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full">
-            <span className="text-xs font-bold text-white flex items-center gap-0.5">
-              <Star className="w-3 h-3" fill="white" /> 프리미엄
-            </span>
-          </div>
-        )}
-
-        {/* 이미지 - 높이 축소 */}
-        <div className="relative h-40 overflow-hidden">
+      <div className="h-full bg-white rounded-3xl overflow-hidden shadow-2xl flex flex-col">
+        {/* 이미지 영역 - 화면의 45% */}
+        <div className="relative flex-[0.45] overflow-hidden">
           <img 
             src={categoryImages[campaign.categories?.[0] || 'default']}
             alt={campaign.name}
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
           
-          {/* 스와이프 힌트 - 작은 아이콘 */}
-          <div className="absolute bottom-2 right-2 bg-white/90 backdrop-blur-sm rounded-full p-1.5">
-            <ChevronUp className="w-4 h-4 text-purple-600" />
-          </div>
-        </div>
-
-        {/* 브랜드 정보 - 상단 강조 */}
-        <div className="px-4 pt-3 pb-2 border-b border-gray-100">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                <Building2 className="w-5 h-5 text-purple-600" />
+          {/* 그라데이션 오버레이 */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+          
+          {/* 프리미엄 뱃지 */}
+          {campaign.is_premium && (
+            <div className="absolute top-3 left-3 z-20">
+              <div className="bg-gradient-to-r from-yellow-400 to-orange-500 px-2.5 py-1 rounded-full flex items-center gap-1 shadow-lg">
+                <Flame className="w-3.5 h-3.5 text-white" />
+                <span className="text-xs font-bold text-white">HOT</span>
               </div>
-              <div>
-                <p className="font-bold text-base flex items-center gap-1">
-                  {campaign.advertiser?.company_name || '브랜드명'}
-                  {campaign.advertiser?.is_verified && (
-                    <svg className="w-4 h-4 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" />
-                    </svg>
-                  )}
-                </p>
-                <div className="flex gap-2">
-                  {campaign.categories?.map((cat, i) => (
-                    <span key={i} className="text-xs px-2 py-0.5 bg-purple-50 text-purple-700 rounded-full">
-                      {categoryLabels[cat] || cat}
+            </div>
+          )}
+          
+          {/* 긴급도 표시 */}
+          {getDaysLeft(campaign.deadline) && getDaysLeft(campaign.deadline)! <= 3 && (
+            <div className="absolute top-3 right-3 z-20">
+              <div className="bg-red-500 px-2.5 py-1 rounded-full animate-pulse">
+                <span className="text-xs font-bold text-white">긴급!</span>
+              </div>
+            </div>
+          )}
+          
+          {/* 브랜드 정보 - 이미지 하단 */}
+          <div className="absolute bottom-0 left-0 right-0 p-3">
+            <div className="flex items-end justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="bg-white/20 backdrop-blur-md rounded-full px-2.5 py-0.5">
+                    <span className="text-white text-xs font-medium">
+                      {categoryLabels[campaign.categories?.[0] || 'default'] || '기타'}
                     </span>
-                  ))}
+                  </div>
+                  {campaign.advertiser?.is_verified && (
+                    <div className="bg-blue-500 rounded-full p-1">
+                      <svg className="w-3 h-3 text-white" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" />
+                      </svg>
+                    </div>
+                  )}
                 </div>
+                <h2 className="text-white text-lg font-bold">
+                  {campaign.advertiser?.company_name || '브랜드명'}
+                </h2>
+                <p className="text-white/90 text-sm line-clamp-1">
+                  {campaign.name}
+                </p>
               </div>
-            </div>
-            <div className="text-right">
-              <p className="text-xs text-gray-500">조회 {campaign.view_count || 0}</p>
-              <p className="text-xs text-gray-500">지원 {campaign.application_count || 0}</p>
+              
+              {/* 예산 강조 */}
+              <div className="text-right">
+                <p className="text-white/70 text-xs mb-0.5">예산</p>
+                <p className="text-white text-xl font-black">
+                  {formatBudget(campaign.budget)}
+                </p>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* 캠페인 제목 */}
-        <div className="px-4 pt-3">
-          <h2 className="text-lg font-bold text-gray-900 line-clamp-1">
-            {campaign.name}
-          </h2>
-          <p className="text-sm text-gray-600 mt-1 line-clamp-2">
-            {campaign.description}
+        {/* 정보 영역 - 화면의 55% */}
+        <div className="flex-[0.55] p-4 flex flex-col">
+          {/* 캠페인 설명 */}
+          <p className="text-gray-600 text-sm leading-relaxed mb-3 line-clamp-2">
+            {campaign.description || '브랜드와 함께 특별한 콘텐츠를 만들어보세요!'}
           </p>
-        </div>
-
-        {/* 핵심 정보 - 2열 그리드 */}
-        <div className="px-4 py-3">
-          <div className="grid grid-cols-2 gap-3">
-            {/* 예산 */}
-            <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-3">
-              <div className="flex items-center gap-1.5 mb-1">
-                <DollarSign className="w-4 h-4 text-purple-600" />
-                <span className="text-xs text-gray-600">예산</span>
+          
+          {/* 핵심 정보 그리드 */}
+          <div className="grid grid-cols-3 gap-2 mb-3">
+            <div className="text-center">
+              <div className="bg-purple-100 rounded-xl p-2.5">
+                <Calendar className="w-5 h-5 text-purple-600 mx-auto mb-1" />
+                <p className="text-xs text-gray-500">마감</p>
+                <p className={`text-sm font-bold ${getUrgencyColor(getDaysLeft(campaign.deadline))}`}>
+                  D-{getDaysLeft(campaign.deadline) || '?'}
+                </p>
               </div>
-              <p className="text-lg font-bold text-gray-900">
-                {formatBudget(campaign.budget)}
-              </p>
             </div>
-
-            {/* 마감일 */}
-            <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-xl p-3">
-              <div className="flex items-center gap-1.5 mb-1">
-                <Calendar className="w-4 h-4 text-orange-600" />
-                <span className="text-xs text-gray-600">마감</span>
+            
+            <div className="text-center">
+              <div className="bg-green-100 rounded-xl p-2.5">
+                <Users className="w-5 h-5 text-green-600 mx-auto mb-1" />
+                <p className="text-xs text-gray-500">지원자</p>
+                <p className="text-sm font-bold text-gray-900">
+                  {campaign.application_count || 0}명
+                </p>
               </div>
-              <p className="text-lg font-bold text-gray-900">
-                D-{getDaysLeft(campaign.deadline)}
-              </p>
+            </div>
+            
+            <div className="text-center">
+              <div className="bg-orange-100 rounded-xl p-2.5">
+                <TrendingUp className="w-5 h-5 text-orange-600 mx-auto mb-1" />
+                <p className="text-xs text-gray-500">조회수</p>
+                <p className="text-sm font-bold text-gray-900">
+                  {campaign.view_count || 0}
+                </p>
+              </div>
             </div>
           </div>
-
-          {/* 추가 정보 - 간단히 */}
-          <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
-            <div className="flex items-center gap-3 text-xs text-gray-600">
-              <span className="flex items-center gap-1">
-                <MapPin className="w-3 h-3" />
-                {getLocation()}
-              </span>
-              <span className="flex items-center gap-1">
-                <Clock className="w-3 h-3" />
-                {getDuration()}
-              </span>
+          
+          {/* 상세보기 영역 - 버튼에 가려지지 않도록 */}
+          <div className="mt-auto">
+            <div className="flex items-center justify-between pt-3 border-t">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                <span className="text-xs text-gray-500">
+                  지금 {Math.floor(Math.random() * 10) + 5}명이 보는 중
+                </span>
+              </div>
+              <button
+                onClick={onShowDetails}
+                className="text-sm text-purple-600 font-bold px-3 py-1.5 hover:bg-purple-50 rounded-lg transition"
+              >
+                상세보기
+              </button>
             </div>
-            {/* 터치 영역 확대를 위한 padding 추가 */}
-            <button
-              onClick={onShowDetails}
-              className="text-xs text-purple-600 font-medium px-2 py-1 -mr-2"
-            >
-              상세보기
-            </button>
           </div>
         </div>
       </div>
@@ -509,9 +500,11 @@ function SwipeableCard({
 // 로딩 상태
 function LoadingState() {
   return (
-    <div className="text-center">
-      <div className="w-16 h-16 mx-auto mb-4 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin" />
-      <p className="text-gray-600">캠페인 로딩중...</p>
+    <div className="h-full flex items-center justify-center">
+      <div className="text-center">
+        <div className="w-16 h-16 mx-auto mb-4 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin" />
+        <p className="text-gray-600">캠페인 로딩중...</p>
+      </div>
     </div>
   );
 }
@@ -519,10 +512,13 @@ function LoadingState() {
 // 일일 제한 상태
 function DailyLimitState() {
   return (
-    <div className="text-center p-6">
-      <Clock className="w-16 h-16 mx-auto mb-4 text-purple-300" />
-      <h3 className="text-xl font-bold mb-2">오늘의 스와이프를 모두 사용했어요!</h3>
-      <p className="text-gray-600">내일 다시 만나요 💜</p>
+    <div className="h-full flex items-center justify-center">
+      <div className="text-center p-6">
+        <Clock className="w-20 h-20 mx-auto mb-4 text-purple-300" />
+        <h3 className="text-2xl font-bold mb-2">오늘의 스와이프 완료!</h3>
+        <p className="text-gray-600 mb-4">내일 다시 만나요 💜</p>
+        <p className="text-sm text-gray-500">매일 10개의 캠페인을 만날 수 있어요</p>
+      </div>
     </div>
   );
 }
@@ -530,15 +526,18 @@ function DailyLimitState() {
 // 빈 상태
 function EmptyState({ onRefresh }: { onRefresh: () => void }) {
   return (
-    <div className="text-center p-6">
-      <Sparkles className="w-16 h-16 mx-auto mb-4 text-purple-300" />
-      <h3 className="text-xl font-bold mb-2">모든 캠페인을 확인했어요!</h3>
-      <button
-        onClick={onRefresh}
-        className="mt-4 px-6 py-2 bg-purple-600 text-white rounded-full hover:bg-purple-700"
-      >
-        새로고침
-      </button>
+    <div className="h-full flex items-center justify-center">
+      <div className="text-center p-6">
+        <Sparkles className="w-20 h-20 mx-auto mb-4 text-purple-300" />
+        <h3 className="text-2xl font-bold mb-2">모든 캠페인 확인 완료!</h3>
+        <p className="text-gray-600 mb-4">새로운 캠페인을 기다려주세요</p>
+        <button
+          onClick={onRefresh}
+          className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full font-bold hover:shadow-lg transition"
+        >
+          새로고침
+        </button>
+      </div>
     </div>
   );
 }
@@ -555,6 +554,14 @@ function CampaignDetailModal({
   onApply: () => void;
   onPass: () => void;
 }) {
+  const formatBudget = (budget: number | null) => {
+    if (!budget) return '협의';
+    if (budget >= 100000000) return `${(budget / 100000000).toFixed(1)}억`;
+    if (budget >= 10000000) return `${(budget / 10000000).toFixed(0)}천만원`;
+    if (budget >= 1000000) return `${(budget / 1000000).toFixed(0)}백만원`;
+    return `${(budget / 10000).toFixed(0)}만원`;
+  };
+  
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -567,71 +574,73 @@ function CampaignDetailModal({
         initial={{ y: "100%" }}
         animate={{ y: 0 }}
         exit={{ y: "100%" }}
-        className="w-full max-h-[85vh] bg-white rounded-t-3xl flex flex-col"
+        transition={{ type: "spring", damping: 25, stiffness: 300 }}
+        className="w-full max-h-[90vh] bg-white rounded-t-3xl flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* 드래그 핸들 - 고정 */}
+        {/* 드래그 핸들 */}
         <div className="p-4 pb-2">
           <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto" />
         </div>
         
-        {/* 스크롤 가능한 컨텐츠 영역 */}
+        {/* 스크롤 가능한 컨텐츠 */}
         <div className="flex-1 overflow-y-auto overscroll-contain px-6 pb-6">
-          {/* 브랜드 정보 */}
-          <div className="flex items-center gap-3 mb-4 pb-4 border-b sticky top-0 bg-white z-10">
-            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-              <Building2 className="w-6 h-6 text-purple-600" />
-            </div>
-            <div>
-              <p className="font-bold text-lg flex items-center gap-1">
-                {campaign.advertiser?.company_name || '브랜드명'}
-                {campaign.advertiser?.is_verified && (
-                  <svg className="w-4 h-4 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" />
-                  </svg>
-                )}
-              </p>
-              <div className="flex gap-2 mt-1">
-                {campaign.categories?.map((cat, i) => (
-                  <span key={i} className="text-xs px-2 py-0.5 bg-purple-50 text-purple-700 rounded-full">
-                    {categoryLabels[cat] || cat}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-          
-          {/* 캠페인 제목 */}
-          <h2 className="text-2xl font-bold mb-4">{campaign.name}</h2>
-          
-          {/* 캠페인 이미지 */}
-          <div className="relative h-48 mb-4 rounded-xl overflow-hidden">
+          {/* 헤더 이미지 */}
+          <div className="relative h-48 -mx-6 mb-6 overflow-hidden">
             <img 
               src={categoryImages[campaign.categories?.[0] || 'default']}
               alt={campaign.name}
               className="w-full h-full object-cover"
             />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+            
+            {/* 브랜드 오버레이 */}
+            <div className="absolute bottom-4 left-6 right-6">
+              <div className="flex items-center gap-3">
+                <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-lg">
+                  <Building2 className="w-7 h-7 text-purple-600" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-white font-bold text-lg flex items-center gap-1">
+                    {campaign.advertiser?.company_name || '브랜드명'}
+                    {campaign.advertiser?.is_verified && (
+                      <svg className="w-4 h-4 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" />
+                      </svg>
+                    )}
+                  </p>
+                  <div className="flex gap-2 mt-1">
+                    {campaign.categories?.map((cat, i) => (
+                      <span key={i} className="text-xs px-2 py-0.5 bg-white/20 backdrop-blur text-white rounded-full">
+                        {categoryLabels[cat] || cat}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
+          
+          {/* 캠페인 제목 */}
+          <h2 className="text-2xl font-bold mb-3">{campaign.name}</h2>
           
           {/* 핵심 정보 카드 */}
           <div className="grid grid-cols-2 gap-3 mb-6">
-            <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-3 rounded-xl">
-              <div className="flex items-center gap-1.5 mb-1">
-                <DollarSign className="w-4 h-4 text-purple-600" />
-                <span className="text-xs text-gray-600">예산</span>
+            <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-4 rounded-xl">
+              <div className="flex items-center gap-2 mb-2">
+                <DollarSign className="w-5 h-5 text-purple-600" />
+                <span className="text-sm text-gray-600">예산</span>
               </div>
-              <p className="font-bold text-lg">
-                {campaign.budget ? 
-                  `${(campaign.budget / 10000).toFixed(0)}만원` : 
-                  '협의'}
+              <p className="font-bold text-xl text-gray-900">
+                {formatBudget(campaign.budget)}
               </p>
             </div>
-            <div className="bg-gradient-to-br from-orange-50 to-red-50 p-3 rounded-xl">
-              <div className="flex items-center gap-1.5 mb-1">
-                <Calendar className="w-4 h-4 text-orange-600" />
-                <span className="text-xs text-gray-600">캠페인 기간</span>
+            <div className="bg-gradient-to-br from-orange-50 to-red-50 p-4 rounded-xl">
+              <div className="flex items-center gap-2 mb-2">
+                <Calendar className="w-5 h-5 text-orange-600" />
+                <span className="text-sm text-gray-600">캠페인 기간</span>
               </div>
-              <p className="font-bold">
+              <p className="font-bold text-gray-900">
                 {campaign.start_date && campaign.end_date ? 
                   `${Math.ceil((new Date(campaign.end_date).getTime() - new Date(campaign.start_date).getTime()) / (1000 * 60 * 60 * 24))}일` :
                   '14일'}
@@ -639,102 +648,112 @@ function CampaignDetailModal({
             </div>
           </div>
           
-          {/* 상세 설명 섹션들 */}
+          {/* 상세 설명 섹션 */}
           <div className="space-y-6">
-            {/* 캠페인 설명 */}
+            {/* 캠페인 소개 */}
             <div>
-              <h3 className="font-semibold mb-2 flex items-center gap-2">
-                <Info className="w-4 h-4 text-purple-600" />
-                캠페인 소개
+              <h3 className="font-bold text-lg mb-3 flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-purple-600" />
+                이런 분을 찾아요
               </h3>
               <p className="text-gray-600 leading-relaxed">
-                {campaign.description || '브랜드와 함께 멋진 콘텐츠를 만들어보세요!'}
+                {campaign.description || '브랜드의 가치를 함께 전달할 수 있는 인플루언서를 찾고 있어요. 진정성 있는 콘텐츠로 팔로워들과 소통하시는 분이면 좋겠습니다.'}
               </p>
             </div>
             
             {/* 요청사항 */}
             <div>
-              <h3 className="font-semibold mb-2 flex items-center gap-2">
-                <Target className="w-4 h-4 text-purple-600" />
-                요청 사항
+              <h3 className="font-bold text-lg mb-3 flex items-center gap-2">
+                <Target className="w-5 h-5 text-purple-600" />
+                진행 방식
               </h3>
-              <ul className="text-gray-600 space-y-2">
+              <div className="space-y-3">
                 {campaign.requirements?.map((req, i) => (
-                  <li key={i} className="flex items-start gap-2">
-                    <span className="text-purple-400 mt-1">•</span>
-                    <span>{req}</span>
-                  </li>
+                  <div key={i} className="flex items-start gap-3">
+                    <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-xs font-bold text-purple-600">{i + 1}</span>
+                    </div>
+                    <span className="text-gray-600">{req}</span>
+                  </div>
                 )) || (
                   <>
-                    <li className="flex items-start gap-2">
-                      <span className="text-purple-400 mt-1">•</span>
-                      <span>자연스러운 일상 속 착용 컷</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-purple-400 mt-1">•</span>
-                      <span>제품의 주요 기능 3가지 이상 소개</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-purple-400 mt-1">•</span>
-                      <span>15-30초 릴스 영상 제작</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-purple-400 mt-1">•</span>
-                      <span>브랜드 공식 해시태그 필수 포함</span>
-                    </li>
+                    <div className="flex items-start gap-3">
+                      <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span className="text-xs font-bold text-purple-600">1</span>
+                      </div>
+                      <span className="text-gray-600">제품 사용 후 솔직한 리뷰 작성</span>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span className="text-xs font-bold text-purple-600">2</span>
+                      </div>
+                      <span className="text-gray-600">일상 속 자연스러운 착용 컷 3장</span>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span className="text-xs font-bold text-purple-600">3</span>
+                      </div>
+                      <span className="text-gray-600">15-30초 릴스 또는 숏폼 영상 1개</span>
+                    </div>
                   </>
                 )}
-              </ul>
+              </div>
             </div>
             
-            {/* 제공 사항 */}
-            {campaign.deliverables && (
-              <div>
-                <h3 className="font-semibold mb-2 flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-purple-600" />
-                  제공 사항
-                </h3>
-                <p className="text-gray-600">
-                  제품 무료 제공 + 촬영 비용 별도 지급
-                </p>
+            {/* 혜택 */}
+            <div>
+              <h3 className="font-bold text-lg mb-3 flex items-center gap-2">
+                <Award className="w-5 h-5 text-purple-600" />
+                제공 혜택
+              </h3>
+              <div className="bg-purple-50 p-4 rounded-xl">
+                <ul className="space-y-2 text-gray-700">
+                  <li className="flex items-center gap-2">
+                    <span className="text-purple-500">✓</span>
+                    제품 무료 제공
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-purple-500">✓</span>
+                    콘텐츠 제작 비용 별도 지급
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-purple-500">✓</span>
+                    우수 콘텐츠 추가 인센티브
+                  </li>
+                </ul>
               </div>
-            )}
+            </div>
             
             {/* 추가 정보 */}
             <div className="bg-gray-50 p-4 rounded-xl">
-              <h3 className="font-semibold mb-3 flex items-center gap-2">
-                <Info className="w-4 h-4 text-gray-600" />
-                추가 정보
-              </h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
+              <h4 className="font-semibold mb-3 text-gray-900">캠페인 정보</h4>
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
                   <span className="text-gray-500">마감일</span>
-                  <span className="font-medium">
+                  <span className="font-medium text-gray-900">
                     {campaign.deadline ? 
                       new Date(campaign.deadline).toLocaleDateString('ko-KR') : 
                       '추후 협의'}
                   </span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between text-sm">
                   <span className="text-gray-500">희망 팔로워</span>
-                  <span className="font-medium">
+                  <span className="font-medium text-gray-900">
                     {campaign.min_followers ? 
                       `${(campaign.min_followers / 10000).toFixed(0)}만 이상` : 
                       '제한 없음'}
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">참여율</span>
-                  <span className="font-medium">
-                    {campaign.min_engagement_rate ? 
-                      `${campaign.min_engagement_rate}% 이상` : 
-                      '제한 없음'}
-                  </span>
-                </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between text-sm">
                   <span className="text-gray-500">현재 지원자</span>
                   <span className="font-medium text-purple-600">
                     {campaign.application_count || 0}명
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">캠페인 조회</span>
+                  <span className="font-medium text-gray-900">
+                    {campaign.view_count || 0}회
                   </span>
                 </div>
               </div>
@@ -750,16 +769,16 @@ function CampaignDetailModal({
                 onPass();
                 onClose();
               }}
-              className="flex-1 py-3 border border-gray-300 rounded-xl font-medium hover:bg-gray-50 transition"
+              className="flex-1 py-4 border border-gray-300 rounded-2xl font-bold text-gray-700 hover:bg-gray-50 transition"
             >
-              패스
+              다음에 할게요
             </button>
             <button
               onClick={() => {
                 onApply();
                 onClose();
               }}
-              className="flex-1 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-medium hover:shadow-lg transition"
+              className="flex-1 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-2xl font-bold hover:shadow-xl transition transform hover:scale-[1.02]"
             >
               지원하기
             </button>
