@@ -5,7 +5,6 @@ import { useSearchParams } from 'next/navigation';
 
 // 원본 컴포넌트를 Suspense로 감싸기
 function RegisterContent() {
-"use client";
 // app/(auth)/register/page.tsx - 수정된 버전
 
 
