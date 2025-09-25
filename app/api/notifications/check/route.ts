@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+export const dynamic = 'force-dynamic';
 
 // Supabase 서버 클라이언트 생성
 function createSupabaseServerClient() {

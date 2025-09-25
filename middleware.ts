@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 
-// 임시로 config를 여기에 정의 (실제로는 @/lib/auth/config에서 import)
+// Config 직접 정의 (별도 파일 import 제거)
 const AUTH_ROUTES = {
   LOGIN: '/login',
   REGISTER: '/register',
@@ -15,7 +15,7 @@ const PUBLIC_ROUTES = [
   '/',
   '/login',
   '/register',
-  '/signup', // /register로 리다이렉트
+  '/signup',
   '/forgot-password',
   '/reset-password',
   '/privacy',
@@ -47,13 +47,6 @@ const PROTECTED_ROUTES = {
 };
 
 export async function middleware(request: NextRequest) {
-  // 응답 객체 생성
-  let response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
-  });
-
   const { pathname } = request.nextUrl;
   
   // 정적 파일 및 API 경로는 무시
@@ -65,7 +58,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/images/') ||
     pathname.startsWith('/fonts/')
   ) {
-    return response;
+    return NextResponse.next();
   }
 
   // /signup → /register 리다이렉트
@@ -73,65 +66,82 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/register', request.url));
   }
 
-  // Supabase 클라이언트 생성
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value;
-        },
-        set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value,
-            ...options,
-          });
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          });
-          response.cookies.set({
-            name,
-            value,
-            ...options,
-          });
-        },
-        remove(name: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value: '',
-            ...options,
-          });
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          });
-          response.cookies.set({
-            name,
-            value: '',
-            ...options,
-          });
-        },
-      },
-    }
+  // 공개 경로는 항상 접근 가능
+  const isPublicPath = PUBLIC_ROUTES.some(path => 
+    pathname === path || pathname.startsWith(`${path}/`)
   );
 
+  // ⭐ 환경 변수 체크 - 매우 중요!
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  // 환경 변수가 없는 경우 처리
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.error('❌ Supabase environment variables are missing!');
+    console.error('NEXT_PUBLIC_SUPABASE_URL:', supabaseUrl ? '✓' : '✗');
+    console.error('NEXT_PUBLIC_SUPABASE_ANON_KEY:', supabaseAnonKey ? '✓' : '✗');
+    
+    // 공개 페이지는 통과
+    if (isPublicPath) {
+      return NextResponse.next();
+    }
+    
+    // 로그인 페이지로 리다이렉트
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
+
+  // 응답 객체 초기화
+  let response = NextResponse.next();
+
   try {
-    // 현재 세션 확인
+    // Supabase 클라이언트 생성
+    const supabase = createServerClient(
+      supabaseUrl,
+      supabaseAnonKey,
+      {
+        cookies: {
+          get(name: string) {
+            return request.cookies.get(name)?.value;
+          },
+          set(name: string, value: string, options: CookieOptions) {
+            request.cookies.set({
+              name,
+              value,
+              ...options,
+            });
+            response.cookies.set({
+              name,
+              value,
+              ...options,
+            });
+          },
+          remove(name: string, options: CookieOptions) {
+            request.cookies.set({
+              name,
+              value: '',
+              ...options,
+            });
+            response.cookies.set({
+              name,
+              value: '',
+              ...options,
+            });
+          },
+        },
+      }
+    );
+
+    // 세션 확인
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
     if (sessionError) {
-      console.error('Session error in middleware:', sessionError);
+      console.error('Session error:', sessionError);
+      // 세션 에러가 있어도 공개 페이지는 접근 가능
+      if (isPublicPath) {
+        return response;
+      }
+      return NextResponse.redirect(new URL('/login', request.url));
     }
-
-    // 공개 경로 체크
-    const isPublicPath = PUBLIC_ROUTES.some(path => 
-      pathname === path || pathname.startsWith(`${path}/`)
-    );
 
     // 로그인하지 않은 사용자
     if (!session) {
@@ -152,7 +162,7 @@ export async function middleware(request: NextRequest) {
       return response;
     }
 
-    // 로그인한 사용자 처리
+    // === 로그인한 사용자 처리 ===
     const userId = session.user.id;
     
     // 사용자 타입 확인
@@ -162,10 +172,17 @@ export async function middleware(request: NextRequest) {
       .eq('id', userId)
       .single();
 
-    if (userError || !userData) {
-      console.error('User data error:', userError);
-      
-      // 온보딩이 필요한 경우
+    if (userError) {
+      console.error('User fetch error:', userError);
+      // 사용자 정보를 가져올 수 없는 경우 온보딩으로
+      if (pathname !== AUTH_ROUTES.ONBOARDING && !isPublicPath) {
+        return NextResponse.redirect(new URL(AUTH_ROUTES.ONBOARDING, request.url));
+      }
+      return response;
+    }
+
+    // userData가 null인 경우 (새 사용자)
+    if (!userData) {
       if (pathname !== AUTH_ROUTES.ONBOARDING && !isPublicPath) {
         return NextResponse.redirect(new URL(AUTH_ROUTES.ONBOARDING, request.url));
       }
@@ -184,7 +201,7 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/', request.url));
     }
 
-    // 온보딩 완료 확인
+    // 온보딩 페이지 처리
     if (pathname === AUTH_ROUTES.ONBOARDING) {
       // 이미 프로필이 있는지 확인
       if (userType === 'advertiser') {
@@ -192,7 +209,7 @@ export async function middleware(request: NextRequest) {
           .from('advertisers')
           .select('id, is_verified')
           .eq('id', userId)
-          .single();
+          .maybeSingle(); // single() 대신 maybeSingle() 사용
 
         if (advertiserData) {
           if (advertiserData.is_verified) {
@@ -206,7 +223,7 @@ export async function middleware(request: NextRequest) {
           .from('influencers')
           .select('id')
           .eq('id', userId)
-          .single();
+          .maybeSingle();
 
         if (influencerData) {
           return NextResponse.redirect(new URL('/campaigns', request.url));
@@ -234,21 +251,21 @@ export async function middleware(request: NextRequest) {
         .from('advertisers')
         .select('is_verified')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
-      if (!advertiserData?.is_verified) {
+      if (advertiserData && !advertiserData.is_verified) {
         // 미승인 광고주는 대기 페이지로
         if (pathname !== AUTH_ROUTES.PENDING_APPROVAL) {
           return NextResponse.redirect(new URL(AUTH_ROUTES.PENDING_APPROVAL, request.url));
         }
-      } else {
+      } else if (advertiserData?.is_verified) {
         return NextResponse.redirect(new URL('/dashboard', request.url));
       }
     }
 
     // 헤더에 사용자 정보 추가
     const requestHeaders = new Headers(request.headers);
-    requestHeaders.set('x-user-id', userId);
+    requestHeaders.set('x-user-id', userId || '');
     requestHeaders.set('x-user-type', userType || '');
 
     response = NextResponse.next({
@@ -260,8 +277,15 @@ export async function middleware(request: NextRequest) {
     return response;
 
   } catch (error) {
-    console.error('Middleware error:', error);
-    return response;
+    console.error('Middleware critical error:', error);
+    
+    // 에러가 발생해도 공개 페이지는 접근 가능
+    if (isPublicPath) {
+      return NextResponse.next();
+    }
+    
+    // 안전하게 로그인 페이지로
+    return NextResponse.redirect(new URL('/login', request.url));
   }
 }
 
@@ -273,7 +297,8 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     * - public files
      */
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|public).*)',
   ],
 };
