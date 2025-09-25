@@ -103,21 +103,31 @@ export default function CampaignsPage() {
   };
 
   const checkDailyLimit = async () => {
-    if (!influencerId) return;
+  if (!influencerId) return;
+  
+  try {
+    const remaining = await ImprovedSwipeQueueManager.getRemainingSwipes(influencerId);
     
-    try {
-      const remaining = await ImprovedSwipeQueueManager.getRemainingSwipes(influencerId);
-      setSwipesLeft(remaining.remaining);
-      setNextRefreshTime(remaining.nextRefresh);
-      
-      if (remaining.remaining === 0) {
-        setDailyLimitReached(true);
-      }
-    } catch (error) {
-      console.error('Error checking daily limit:', error);
+    console.log('Daily limit check:', remaining);
+    
+    setSwipesLeft(remaining.remaining);
+    setNextRefreshTime(remaining.nextRefresh);
+    
+    // 남은 스와이프가 0이면 제한 도달
+    if (remaining.remaining === 0) {
+      setDailyLimitReached(true);
+      setCampaigns([]); // 캠페인 리스트 비우기
+      toast.error('오늘의 스와이프를 모두 사용했습니다! 내일 다시 만나요 💜');
+    } else {
+      setDailyLimitReached(false);
     }
-  };
-
+  } catch (error) {
+    console.error('Error checking daily limit:', error);
+    // 에러 발생시 기본값 설정
+    setSwipesLeft(10);
+    setDailyLimitReached(false);
+  }
+};
   const loadCampaigns = async () => {
     if (!influencerId) return;
     
