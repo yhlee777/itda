@@ -234,12 +234,9 @@ const campaignsByCategory: Record<string, any[]> = {
 export default function DemoClient() {
   const router = useRouter();
   
-  // 온보딩 관련
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  const [hasSeenOnboarding, setHasSeenOnboarding] = useState(false);
-  
-  // 카테고리 선택 관련
+  // State 관리
   const [showCategorySelect, setShowCategorySelect] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [campaigns, setCampaigns] = useState<any[]>([]);
   
@@ -250,16 +247,6 @@ export default function DemoClient() {
   const [dragOffset, setDragOffset] = useState(0);
   const [showLockCard, setShowLockCard] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-
-  // 온보딩 체크
-  useEffect(() => {
-    const seen = localStorage.getItem('hasSeenOnboarding');
-    if (!seen) {
-      setShowOnboarding(true);
-    } else {
-      setHasSeenOnboarding(true);
-    }
-  }, []);
 
   // 모바일 체크
   useEffect(() => {
@@ -272,19 +259,27 @@ export default function DemoClient() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  const handleOnboardingComplete = () => {
-    localStorage.setItem('hasSeenOnboarding', 'true');
-    setShowOnboarding(false);
-    setHasSeenOnboarding(true);
-  };
-
+  // 카테고리 선택 핸들러
   const handleCategorySelect = (category: string) => {
     setSelectedCategory(category);
     setCampaigns(campaignsByCategory[category] || []);
     setShowCategorySelect(false);
+    
+    // 온보딩을 본 적이 없으면 보여주기
+    const hasSeenOnboarding = localStorage.getItem('hasSeenOnboarding');
+    if (!hasSeenOnboarding) {
+      setShowOnboarding(true);
+    }
+    
     setCurrentIndex(0);
     setSwipedCards([]);
     setShowLockCard(false);
+  };
+
+  // 온보딩 완료 핸들러
+  const handleOnboardingComplete = () => {
+    localStorage.setItem('hasSeenOnboarding', 'true');
+    setShowOnboarding(false);
   };
 
   const handleSwipe = (swipeDirection: 'left' | 'right') => {
@@ -321,76 +316,75 @@ export default function DemoClient() {
 
   const currentCampaign = showLockCard ? null : campaigns[currentIndex];
 
-  // 카테고리 선택 화면
+  // 1. 카테고리 선택 화면
   if (showCategorySelect) {
     return (
-      <>
-        {showOnboarding && (
-          <OnboardingTutorial onComplete={handleOnboardingComplete} />
-        )}
-        
-        <main className="min-h-screen bg-gradient-to-br from-purple-900 via-black to-black relative overflow-hidden">
-          {/* 배경 애니메이션 */}
-          <div className="absolute inset-0">
-            <div className="absolute top-20 left-20 w-72 h-72 bg-purple-600/20 rounded-full blur-3xl animate-pulse" />
-            <div className="absolute bottom-20 right-20 w-96 h-96 bg-pink-600/20 rounded-full blur-3xl animate-pulse delay-1000" />
-          </div>
+      <main className="min-h-screen bg-gradient-to-br from-purple-900 via-black to-black relative overflow-hidden">
+        {/* 배경 애니메이션 */}
+        <div className="absolute inset-0">
+          <div className="absolute top-20 left-20 w-72 h-72 bg-purple-600/20 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute bottom-20 right-20 w-96 h-96 bg-pink-600/20 rounded-full blur-3xl animate-pulse delay-1000" />
+        </div>
 
-          <div className="min-h-screen flex items-center justify-center px-4 relative z-10">
-            <div className="max-w-3xl w-full">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="text-center mb-12"
-              >
-                <h1 className="text-3xl sm:text-5xl font-bold text-white mb-4">
-                  어떤 분야의 인플루언서신가요?
-                </h1>
-                <p className="text-white/60 text-lg">
-                  관심 카테고리를 선택하면 맞춤 캠페인을 보여드려요
-                </p>
-              </motion.div>
+        <div className="min-h-screen flex items-center justify-center px-4 relative z-10">
+          <div className="max-w-3xl w-full">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-center mb-12"
+            >
+              <h1 className="text-3xl sm:text-5xl font-bold text-white mb-4">
+                어떤 분야의 인플루언서신가요?
+              </h1>
+              <p className="text-white/60 text-lg">
+                관심 카테고리를 선택하면 맞춤 캠페인을 보여드려요
+              </p>
+            </motion.div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8">
-                {[
-                  { id: 'beauty', label: '뷰티', icon: '💄', count: 3 },
-                  { id: 'fashion', label: '패션', icon: '👗', count: 3 },
-                  { id: 'food', label: '푸드', icon: '🍽️', count: 3 },
-                  { id: 'lifestyle', label: '라이프', icon: '🏠', count: 3 },
-                  { id: 'fitness', label: '운동', icon: '💪', count: 3 },
-                ].map((cat, i) => (
-                  <motion.button
-                    key={cat.id}
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: i * 0.05 }}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => handleCategorySelect(cat.id)}
-                    className="p-8 rounded-2xl bg-white/5 backdrop-blur border-2 border-white/20 hover:border-purple-500 hover:bg-purple-500/10 transition-all cursor-pointer"
-                  >
-                    <div className="text-5xl mb-4">{cat.icon}</div>
-                    <div className="text-white text-xl font-medium">{cat.label}</div>
-                    <div className="text-white/40 text-sm mt-2">
-                      {cat.count}개 캠페인
-                    </div>
-                  </motion.button>
-                ))}
-              </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8">
+              {[
+                { id: 'beauty', label: '뷰티', icon: '💄', count: 3 },
+                { id: 'fashion', label: '패션', icon: '👗', count: 3 },
+                { id: 'food', label: '푸드', icon: '🍽️', count: 3 },
+                { id: 'lifestyle', label: '라이프', icon: '🏠', count: 3 },
+                { id: 'fitness', label: '운동', icon: '💪', count: 3 },
+              ].map((cat, i) => (
+                <motion.button
+                  key={cat.id}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: i * 0.05 }}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => handleCategorySelect(cat.id)}
+                  className="p-8 rounded-2xl bg-white/5 backdrop-blur border-2 border-white/20 hover:border-purple-500 hover:bg-purple-500/10 transition-all cursor-pointer"
+                >
+                  <div className="text-5xl mb-4">{cat.icon}</div>
+                  <div className="text-white text-xl font-medium">{cat.label}</div>
+                  <div className="text-white/40 text-sm mt-2">
+                    {cat.count}개 캠페인
+                  </div>
+                </motion.button>
+              ))}
+            </div>
 
-              <div className="text-center">
-                <p className="text-white/40 text-sm">
-                  카테고리를 선택하면 바로 시작됩니다
-                </p>
-              </div>
+            <div className="text-center">
+              <p className="text-white/40 text-sm">
+                카테고리를 선택하면 사용법을 알려드려요
+              </p>
             </div>
           </div>
-        </main>
-      </>
+        </div>
+      </main>
     );
   }
 
-  // 스와이프 화면
+  // 2. 온보딩 표시 (카테고리 선택 후)
+  if (showOnboarding) {
+    return <OnboardingTutorial onComplete={handleOnboardingComplete} />;
+  }
+
+  // 3. 스와이프 화면
   return (
     <main className="min-h-screen bg-gradient-to-br from-purple-900 via-black to-black relative overflow-hidden">
       {/* 배경 애니메이션 */}
