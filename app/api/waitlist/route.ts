@@ -1,24 +1,28 @@
 import { NextResponse } from 'next/server';
 
-const API_KEY = process.env.JSONBIN_API_KEY!;
-const BIN_ID = process.env.JSONBIN_BIN_ID!;
+// 새 Public BIN ID로 변경
+const API_KEY = '$2a$10$DwuPZ/WzVA5oA4w1t9mG7uPPzHCjY/cg34y78RvqQKxqirGNnTh2u';
+const BIN_ID = '68d62ebc43b1c97be9508078';  // ← 새 Public BIN!
 
 export async function POST(request: Request) {
   try {
     const data = await request.json();
     
-    // 기존 데이터 가져오기
+    // Public BIN 읽기 (API Key 없어도 됨)
     const getResponse = await fetch(
-      `https://api.jsonbin.io/v3/b/${BIN_ID}/latest`,
-      {
-        headers: {
-          'X-Access-Key': API_KEY
-        }
-      }
+      `https://api.jsonbin.io/v3/b/${BIN_ID}/latest`
     );
     
-    const binData = await getResponse.json();
-    const existingData = binData.record || [];
+    let existingData = [];
+    if (getResponse.ok) {
+      const responseText = await getResponse.text();
+      try {
+        const responseData = JSON.parse(responseText);
+        existingData = Array.isArray(responseData) ? responseData : [];
+      } catch {
+        existingData = [];
+      }
+    }
     
     // 대기번호 생성
     const waitingNumber = existingData.length + 300;
@@ -33,8 +37,8 @@ export async function POST(request: Request) {
     // 데이터 추가
     existingData.push(entry);
     
-    // 다시 저장
-    await fetch(
+    // 저장은 API Key 필요
+    const putResponse = await fetch(
       `https://api.jsonbin.io/v3/b/${BIN_ID}`,
       {
         method: 'PUT',
@@ -46,29 +50,45 @@ export async function POST(request: Request) {
       }
     );
     
+    if (!putResponse.ok) {
+      const errorText = await putResponse.text();
+      console.error('저장 실패:', errorText);
+      throw new Error('저장 실패');
+    }
+    
     return NextResponse.json({ 
       success: true, 
       waitingNumber 
     });
-  } catch (error) {
-    console.error('Error:', error);
-    return NextResponse.json({ error: 'Failed' }, { status: 500 });
+  } catch (error: any) {
+    console.error('에러:', error);
+    return NextResponse.json({ 
+      success: false,
+      error: error.message 
+    }, { status: 500 });
   }
 }
 
 export async function GET() {
   try {
+    // Public BIN - API Key 없이 읽기
     const response = await fetch(
-      `https://api.jsonbin.io/v3/b/${BIN_ID}/latest`,
-      {
-        headers: {
-          'X-Access-Key': API_KEY
-        }
-      }
+      `https://api.jsonbin.io/v3/b/${BIN_ID}/latest`
     );
     
-    const data = await response.json();
-    const waitlist = data.record || [];
+    if (!response.ok) {
+      return NextResponse.json([]);
+    }
+    
+    const text = await response.text();
+    let waitlist = [];
+    
+    try {
+      const data = JSON.parse(text);
+      waitlist = Array.isArray(data) ? data : [];
+    } catch {
+      waitlist = [];
+    }
     
     // 최신순 정렬
     waitlist.sort((a: any, b: any) => 
@@ -77,7 +97,7 @@ export async function GET() {
     
     return NextResponse.json(waitlist);
   } catch (error) {
-    console.error('Error:', error);
+    console.error('GET 에러:', error);
     return NextResponse.json([]);
   }
 }
