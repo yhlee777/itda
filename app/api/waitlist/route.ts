@@ -1,26 +1,24 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
 
-// 데이터 파일 경로
-const dataPath = path.join(process.cwd(), 'data', 'waitlist.json');
-
-// 디렉토리 생성
-if (!fs.existsSync(path.dirname(dataPath))) {
-  fs.mkdirSync(path.dirname(dataPath), { recursive: true });
-}
-
-// 초기 파일 생성
-if (!fs.existsSync(dataPath)) {
-  fs.writeFileSync(dataPath, '[]');
-}
+const API_KEY = process.env.JSONBIN_API_KEY!;
+const BIN_ID = process.env.JSONBIN_BIN_ID!;
 
 export async function POST(request: Request) {
   try {
     const data = await request.json();
     
-    // 기존 데이터 읽기
-    const existingData = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
+    // 기존 데이터 가져오기
+    const getResponse = await fetch(
+      `https://api.jsonbin.io/v3/b/${BIN_ID}/latest`,
+      {
+        headers: {
+          'X-Access-Key': API_KEY
+        }
+      }
+    );
+    
+    const binData = await getResponse.json();
+    const existingData = binData.record || [];
     
     // 대기번호 생성
     const waitingNumber = existingData.length + 300;
@@ -35,8 +33,18 @@ export async function POST(request: Request) {
     // 데이터 추가
     existingData.push(entry);
     
-    // 파일에 저장
-    fs.writeFileSync(dataPath, JSON.stringify(existingData, null, 2));
+    // 다시 저장
+    await fetch(
+      `https://api.jsonbin.io/v3/b/${BIN_ID}`,
+      {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Access-Key': API_KEY
+        },
+        body: JSON.stringify(existingData)
+      }
+    );
     
     return NextResponse.json({ 
       success: true, 
@@ -50,13 +58,26 @@ export async function POST(request: Request) {
 
 export async function GET() {
   try {
-    const data = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
+    const response = await fetch(
+      `https://api.jsonbin.io/v3/b/${BIN_ID}/latest`,
+      {
+        headers: {
+          'X-Access-Key': API_KEY
+        }
+      }
+    );
+    
+    const data = await response.json();
+    const waitlist = data.record || [];
+    
     // 최신순 정렬
-    data.sort((a: any, b: any) => 
+    waitlist.sort((a: any, b: any) => 
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
-    return NextResponse.json(data);
+    
+    return NextResponse.json(waitlist);
   } catch (error) {
+    console.error('Error:', error);
     return NextResponse.json([]);
   }
 }
