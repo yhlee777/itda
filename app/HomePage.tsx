@@ -1,762 +1,404 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import Image from 'next/image';
-import OnboardingTutorial from '@/components/OnboardingTutorial';
+import { motion, AnimatePresence } from 'framer-motion';
 
-// 카테고리별 캠페인 데이터
-const campaignsByCategory: Record<string, any[]> = {
-  beauty: [
-    {
-      id: 'b1',
-      brand: '디얼달리아',
-      brandDesc: '클린뷰티 스타트업',
-      title: '비건 선크림 체험단',
-      description: '신제품 워터풀 선크림 정품 제공. 2주 사용 후 솔직한 리뷰 부탁드려요.',
-      budget: '80만원',
-      requirements: '피드 2, 스토리 3',
-      category: '뷰티',
-      deadline: 'D-5',
-      followers: '1만+',
-      imageUrl: 'https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=400&h=500&fit=crop',
-      logoUrl: 'https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=60&h=60&fit=crop'
-    },
-    {
-      id: 'b2',
-      brand: '힐링버드',
-      brandDesc: '한방 코스메틱',
-      title: '어성초 토너패드 리뷰',
-      description: '트러블 진정 효과 집중 리뷰. 비포애프터 사진 필수.',
-      budget: '60만원',
-      requirements: '릴스 1, 피드 2',
-      category: '뷰티',
-      deadline: 'D-7',
-      followers: '5천+',
-      imageUrl: 'https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?w=400&h=500&fit=crop',
-      logoUrl: 'https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?w=60&h=60&fit=crop'
-    },
-    {
-      id: 'b3',
-      brand: '글로우랩',
-      brandDesc: 'LED 마스크 브랜드',
-      title: '홈케어 LED 마스크',
-      description: '4주간 사용 후 피부 개선 효과 리뷰. 제품 대여 후 리뷰어 증정.',
-      budget: '100만원',
-      requirements: '피드 3, 릴스 1',
-      category: '뷰티',
-      deadline: 'D-10',
-      followers: '2만+',
-      imageUrl: 'https://images.unsplash.com/photo-1616394584738-fc6e612e71b9?w=400&h=500&fit=crop',
-      logoUrl: 'https://images.unsplash.com/photo-1611080626919-7cf5a9dbab5b?w=60&h=60&fit=crop'
-    }
-  ],
-  fashion: [
-    {
-      id: 'f1',
-      brand: '무탠다드',
-      brandDesc: '미니멀 의류',
-      title: 'F/W 니트 컬렉션',
-      description: '3가지 컬러 니트 제공. 데일리룩 스타일링 5가지.',
-      budget: '100만원',
-      requirements: '피드 3, 릴스 1',
-      category: '패션',
-      deadline: 'D-4',
-      followers: '2만+',
-      imageUrl: 'https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=400&h=500&fit=crop',
-      logoUrl: 'https://images.unsplash.com/photo-1558769132-cb1aea458c5e?w=60&h=60&fit=crop'
-    },
-    {
-      id: 'f2',
-      brand: '슬로우앤드',
-      brandDesc: '실버 주얼리',
-      title: '데일리 실버 컬렉션',
-      description: '레이어링 목걸이 3종. 다양한 코디 매치.',
-      budget: '70만원',
-      requirements: '피드 2, 스토리 2',
-      category: '패션',
-      deadline: 'D-6',
-      followers: '1만+',
-      imageUrl: 'https://images.unsplash.com/photo-1515377905703-c4788e51af15?w=400&h=500&fit=crop',
-      logoUrl: 'https://images.unsplash.com/photo-1611085583191-a3b181a88401?w=60&h=60&fit=crop'
-    },
-    {
-      id: 'f3',
-      brand: '리본느',
-      brandDesc: '프렌치 캐주얼',
-      title: '블라우스 & 스커트',
-      description: '오피스룩에서 데이트룩까지. 전환 스타일링 보여주기.',
-      budget: '90만원',
-      requirements: '릴스 2, 피드 2',
-      category: '패션',
-      deadline: 'D-8',
-      followers: '1.5만+',
-      imageUrl: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=400&h=500&fit=crop',
-      logoUrl: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=60&h=60&fit=crop'
-    }
-  ],
-  food: [
-    {
-      id: 'fd1',
-      brand: '그릭데이',
-      brandDesc: '그릭요거트',
-      title: '아침대용 요거트볼',
-      description: '단백질 30g 그릭요거트. 다이어트 식단 일주일 챌린지.',
-      budget: '50만원',
-      requirements: '릴스 1, 피드 1',
-      category: '푸드',
-      deadline: 'D-3',
-      followers: '5천+',
-      imageUrl: 'https://images.unsplash.com/photo-1488477181946-6428a0291777?w=400&h=500&fit=crop',
-      logoUrl: 'https://images.unsplash.com/photo-1628088062854-d1870b4553da?w=60&h=60&fit=crop'
-    },
-    {
-      id: 'fd2',
-      brand: '미트리',
-      brandDesc: '대체육 브랜드',
-      title: '비건 불고기 체험',
-      description: '100% 식물성 불고기. 일반 고기와 블라인드 테스트.',
-      budget: '90만원',
-      requirements: '릴스 2, 피드 2',
-      category: '푸드',
-      deadline: 'D-7',
-      followers: '1만+',
-      imageUrl: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=400&h=500&fit=crop',
-      logoUrl: 'https://images.unsplash.com/photo-1606923829321-0cb0e3377d73?w=60&h=60&fit=crop'
-    },
-    {
-      id: 'fd3',
-      brand: '델리밀',
-      brandDesc: '밀프렙 도시락',
-      title: '일주일 도시락 구독',
-      description: '다이어트 도시락 7일 체험. 체중 변화 기록 필수.',
-      budget: '70만원',
-      requirements: '피드 2, 스토리 5',
-      category: '푸드',
-      deadline: 'D-5',
-      followers: '8천+',
-      imageUrl: 'https://images.unsplash.com/photo-1546793665-c74683f339c1?w=400&h=500&fit=crop',
-      logoUrl: 'https://images.unsplash.com/photo-1609501676725-7186f017a4b7?w=60&h=60&fit=crop'
-    }
-  ],
-  lifestyle: [
-    {
-      id: 'l1',
-      brand: '리빙포인트',
-      brandDesc: '홈데코 브랜드',
-      title: '홈카페 인테리어',
-      description: '카페 소품 5종 세트. 홈카페 꾸미기 과정 공유.',
-      budget: '70만원',
-      requirements: '피드 2, 스토리 3',
-      category: '라이프',
-      deadline: 'D-5',
-      followers: '1만+',
-      imageUrl: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&h=500&fit=crop',
-      logoUrl: 'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?w=60&h=60&fit=crop'
-    },
-    {
-      id: 'l2',
-      brand: '센티드',
-      brandDesc: '룸스프레이',
-      title: '시그니처 룸스프레이',
-      description: '공간별 향 추천. 무드 있는 공간 연출 팁.',
-      budget: '60만원',
-      requirements: '릴스 1, 피드 2',
-      category: '라이프',
-      deadline: 'D-4',
-      followers: '8천+',
-      imageUrl: 'https://images.unsplash.com/photo-1541643600914-78b084683601?w=400&h=500&fit=crop',
-      logoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=60&h=60&fit=crop'
-    },
-    {
-      id: 'l3',
-      brand: '플랜트리',
-      brandDesc: '식물 큐레이션',
-      title: '반려식물 스타터팩',
-      description: '초보자용 식물 3종. 한 달간 성장 기록.',
-      budget: '50만원',
-      requirements: '피드 3, 스토리 2',
-      category: '라이프',
-      deadline: 'D-6',
-      followers: '5천+',
-      imageUrl: 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=400&h=500&fit=crop',
-      logoUrl: 'https://images.unsplash.com/photo-1509423350716-97f9360b4e09?w=60&h=60&fit=crop'
-    }
-  ],
-  fitness: [
-    {
-      id: 'ft1',
-      brand: '바디업',
-      brandDesc: '홈트 용품',
-      title: '요가매트 & 폼롤러',
-      description: '프리미엄 요가매트 세트. 홈트 루틴 공유.',
-      budget: '60만원',
-      requirements: '릴스 2, 피드 1',
-      category: '운동',
-      deadline: 'D-4',
-      followers: '1만+',
-      imageUrl: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=400&h=500&fit=crop',
-      logoUrl: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=60&h=60&fit=crop'
-    },
-    {
-      id: 'ft2',
-      brand: '프로틴팩토리',
-      brandDesc: '단백질 보충제',
-      title: '비건 프로틴 30일',
-      description: '식물성 프로틴 파우더. 운동 전후 섭취 루틴.',
-      budget: '80만원',
-      requirements: '피드 2, 릴스 1',
-      category: '운동',
-      deadline: 'D-6',
-      followers: '1.5만+',
-      imageUrl: 'https://images.unsplash.com/photo-1593095948071-474c5cc2989d?w=400&h=500&fit=crop',
-      logoUrl: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=60&h=60&fit=crop'
-    },
-    {
-      id: 'ft3',
-      brand: '스마트핏',
-      brandDesc: '운동 웨어',
-      title: '요가복 3종 세트',
-      description: '레깅스+브라탑+탑. 요가 동작별 착용감 리뷰.',
-      budget: '100만원',
-      requirements: '릴스 1, 피드 3',
-      category: '운동',
-      deadline: 'D-8',
-      followers: '2만+',
-      imageUrl: 'https://images.unsplash.com/photo-1506629082955-511b1aa562c8?w=400&h=500&fit=crop',
-      logoUrl: 'https://images.unsplash.com/photo-1552196563-55cd4e45efb3?w=60&h=60&fit=crop'
-    }
-  ]
-};
-
-export default function DemoClient() {
+export default function HomePage() {
   const router = useRouter();
-  
-  // State 관리
-  const [showCategorySelect, setShowCategorySelect] = useState(true);
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState('');
-  const [campaigns, setCampaigns] = useState<any[]>([]);
-  
-  // 스와이프 관련
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [swipedCards, setSwipedCards] = useState<any[]>([]);
-  const [direction, setDirection] = useState<'left' | 'right' | null>(null);
-  const [dragOffset, setDragOffset] = useState(0);
-  const [showLockCard, setShowLockCard] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [touchStart, setTouchStart] = useState(0);
+  const [touchEnd, setTouchEnd] = useState(0);
 
-  // 모바일 체크
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-
-  // 카테고리 선택 핸들러
-  const handleCategorySelect = (category: string) => {
-    setSelectedCategory(category);
-    setCampaigns(campaignsByCategory[category] || []);
-    setShowCategorySelect(false);
-    
-    // 온보딩을 본 적이 없으면 보여주기
-    const hasSeenOnboarding = localStorage.getItem('hasSeenOnboarding');
-    if (!hasSeenOnboarding) {
-      setShowOnboarding(true);
-    }
-    
-    setCurrentIndex(0);
-    setSwipedCards([]);
-    setShowLockCard(false);
-  };
-
-  // 온보딩 완료 핸들러
-  const handleOnboardingComplete = () => {
-    localStorage.setItem('hasSeenOnboarding', 'true');
-    setShowOnboarding(false);
-  };
-
-  const handleSwipe = (swipeDirection: 'left' | 'right') => {
-    if (showLockCard) return;
-    
-    const currentCampaign = campaigns[currentIndex];
-    setDirection(swipeDirection);
-    
-    if (swipeDirection === 'right' && currentCampaign) {
-      setSwipedCards([...swipedCards, currentCampaign]);
-    }
-
-    setTimeout(() => {
-      if (currentIndex === campaigns.length - 1) {
-        setShowLockCard(true);
-      } else {
-        setCurrentIndex(prev => prev + 1);
-      }
-      setDirection(null);
-      setDragOffset(0);
-    }, 300);
-  };
-
-  useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
-      if (showLockCard || showCategorySelect || showOnboarding) return;
-      if (e.key === 'ArrowLeft') handleSwipe('left');
-      if (e.key === 'ArrowRight') handleSwipe('right');
-    };
-    
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [currentIndex, showLockCard, showCategorySelect, showOnboarding]);
-
-  const currentCampaign = showLockCard ? null : campaigns[currentIndex];
-
-  // 1. 카테고리 선택 화면
-  if (showCategorySelect) {
-    return (
-      <main className="min-h-screen bg-gradient-to-br from-purple-900 via-black to-black relative overflow-hidden">
-        {/* 배경 애니메이션 */}
-        <div className="absolute inset-0">
-          <div className="absolute top-20 left-20 w-72 h-72 bg-purple-600/20 rounded-full blur-3xl animate-pulse" />
-          <div className="absolute bottom-20 right-20 w-96 h-96 bg-pink-600/20 rounded-full blur-3xl animate-pulse delay-1000" />
-        </div>
-
-        <div className="min-h-screen flex items-center justify-center px-4 relative z-10">
-          <div className="max-w-3xl w-full">
+  const slides = [
+    // 슬라이드 1: 메인
+    {
+      id: 'main',
+      content: (
+        <div className="min-h-screen flex items-center justify-center relative px-4">
+          <div className="text-center z-10 w-full max-w-5xl">
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="text-center mb-12"
+              className="mb-8"
             >
-              <h1 className="text-3xl sm:text-5xl font-bold text-white mb-4">
-                어떤 분야의 인플루언서신가요?
-              </h1>
-              <p className="text-white/60 text-lg">
-                관심 카테고리를 선택하면 맞춤 캠페인을 보여드려요
-              </p>
+              <span className="px-4 py-2 bg-red-500/20 text-red-400 rounded-full text-sm font-medium">
+                🔥 선착순 37명 남음
+              </span>
             </motion.div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.6 }}
+            >
+              <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-white mb-6">
+                <span className="text-purple-400">1,847명</span>의
+                <br />
+                인플루언서가 선택
+              </h1>
+              
+              <p className="text-xl sm:text-2xl md:text-3xl text-white/80 mb-4">
+                평생 수수료 <span className="text-purple-400 font-bold">0%</span>
+              </p>
+              
+              <p className="text-white/60 text-lg">
+                83개 브랜드 캠페인 대기 중
+              </p>
+            </motion.div>
+          </div>
+        </div>
+      )
+    },
+    // 슬라이드 2: 실적
+    {
+      id: 'stats',
+      content: (
+        <div className="min-h-screen flex items-center justify-center px-4">
+          <div className="max-w-6xl w-full">
+            <div className="text-center mb-16">
+              <h2 className="text-3xl md:text-5xl text-white font-bold mb-4">
+                매칭 성공률 <span className="text-purple-400">87%</span>
+              </h2>
+              <p className="text-white/60 text-lg">
+                평균 18시간 내 브랜드 매칭
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
               {[
-                { id: 'beauty', label: '뷰티', icon: '💄', count: 3 },
-                { id: 'fashion', label: '패션', icon: '👗', count: 3 },
-                { id: 'food', label: '푸드', icon: '🍽️', count: 3 },
-                { id: 'lifestyle', label: '라이프', icon: '🏠', count: 3 },
-                { id: 'fitness', label: '운동', icon: '💪', count: 3 },
-              ].map((cat, i) => (
-                <motion.button
-                  key={cat.id}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: i * 0.05 }}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => handleCategorySelect(cat.id)}
-                  className="p-8 rounded-2xl bg-white/5 backdrop-blur border-2 border-white/20 hover:border-purple-500 hover:bg-purple-500/10 transition-all cursor-pointer"
+                { num: "294", label: "오늘 성사된 매칭", icon: "💜" },
+                { num: "₩2.4억", label: "11월 캠페인 예산", icon: "💰" },
+                { num: "18시간", label: "평균 매칭 시간", icon: "⚡" },
+                { num: "0%", label: "수수료", icon: "🎯", highlight: true }
+              ].map((stat, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.1 }}
+                  className="bg-white/5 backdrop-blur rounded-2xl p-6 border border-white/10"
                 >
-                  <div className="text-5xl mb-4">{cat.icon}</div>
-                  <div className="text-white text-xl font-medium">{cat.label}</div>
-                  <div className="text-white/40 text-sm mt-2">
-                    {cat.count}개 캠페인
+                  <div className="text-3xl mb-3">{stat.icon}</div>
+                  <div className={`text-3xl md:text-4xl font-bold mb-2 ${
+                    stat.highlight ? 'text-purple-400' : 'text-white'
+                  }`}>
+                    {stat.num}
                   </div>
-                </motion.button>
+                  <div className="text-sm text-white/60">{stat.label}</div>
+                </motion.div>
               ))}
             </div>
-
-            <div className="text-center">
-              <p className="text-white/40 text-sm">
-                카테고리를 선택하면 사용법을 알려드려요
-              </p>
-            </div>
           </div>
         </div>
-      </main>
-    );
-  }
-
-  // 2. 온보딩 표시 (카테고리 선택 후)
-  if (showOnboarding) {
-    return <OnboardingTutorial onComplete={handleOnboardingComplete} />;
-  }
-
-  // 3. 스와이프 화면
-  return (
-    <main className="min-h-screen bg-gradient-to-br from-purple-900 via-black to-black relative overflow-hidden">
-      {/* 배경 애니메이션 */}
-      <div className="absolute inset-0">
-        <div className="absolute top-10 sm:top-20 left-10 sm:left-20 w-48 sm:w-72 h-48 sm:h-72 bg-purple-600/20 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-10 sm:bottom-20 right-10 sm:right-20 w-64 sm:w-96 h-64 sm:h-96 bg-pink-600/20 rounded-full blur-3xl animate-pulse delay-1000" />
-      </div>
-
-      {/* 헤더 */}
-      <div className="fixed top-0 w-full z-50 p-4 sm:p-6 bg-black/20 backdrop-blur-md">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => {
-                setShowCategorySelect(true);
-                setCurrentIndex(0);
-                setSwipedCards([]);
-              }}
-              className="text-white/60 hover:text-white transition-colors"
-            >
-              ← 카테고리 변경
-            </button>
-            <div className="text-white">
-              <p className="text-[10px] sm:text-xs opacity-60">
-                {selectedCategory === 'beauty' && '뷰티'}
-                {selectedCategory === 'fashion' && '패션'}
-                {selectedCategory === 'food' && '푸드'}
-                {selectedCategory === 'lifestyle' && '라이프'}
-                {selectedCategory === 'fitness' && '운동'}
-              </p>
-              <p className="text-lg sm:text-xl font-light">itda</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-3 sm:gap-6">
-            <div className="text-right">
-              <p className="text-[10px] sm:text-xs text-white/60">관심 캠페인</p>
-              <p className="text-xl sm:text-2xl text-purple-400 font-bold">{swipedCards.length}</p>
-            </div>
+      )
+    },
+    // 슬라이드 3: 후기
+    {
+      id: 'reviews',
+      content: (
+        <div className="min-h-screen flex items-center justify-center px-4">
+          <div className="max-w-5xl w-full">
+            <h2 className="text-3xl md:text-4xl text-white font-bold mb-12 text-center">
+              실제 인플루언서 후기
+            </h2>
             
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => router.push('/waitlist')}
-              className="px-4 sm:px-6 py-1.5 sm:py-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full text-white text-xs sm:text-sm font-medium shadow-lg hover:shadow-purple-500/25 transition-all"
-            >
-              시작하기
-            </motion.button>
+            <div className="grid md:grid-cols-3 gap-6">
+              {[
+                {
+                  name: "@beauty.yeon",
+                  followers: "3.2만",
+                  review: "에이전시 수수료 없어서 진짜 좋아요. 첫 달에 5개 캠페인 진행했어요!",
+                  earnings: "+450만원"
+                },
+                {
+                  name: "@daily_ootd",
+                  followers: "1.8만",
+                  review: "틴더처럼 스와이프하니까 재밌고 편해요ㅋㅋ 매칭도 빨라요",
+                  earnings: "+320만원"
+                },
+                {
+                  name: "@cafe.lover",
+                  followers: "5.5천",
+                  review: "나노 인플루언서도 대우받는 느낌! 보장금 캠페인 많아요",
+                  earnings: "+180만원"
+                }
+              ].map((review, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: i * 0.15 }}
+                  className="bg-gradient-to-br from-purple-900/20 to-pink-900/20 backdrop-blur rounded-xl p-6 border border-purple-500/20"
+                >
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <p className="text-white font-medium">{review.name}</p>
+                      <p className="text-white/40 text-sm">{review.followers} 팔로워</p>
+                    </div>
+                    <span className="text-green-400 font-bold">{review.earnings}</span>
+                  </div>
+                  <p className="text-white/70 text-sm italic">"{review.review}"</p>
+                </motion.div>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
-
-      {/* 메인 스와이프 영역 */}
-      <div className="h-screen flex items-center justify-center px-4 sm:px-8 pt-16 sm:pt-20">
-        <div className="w-full max-w-[340px] sm:max-w-sm relative">
-          {/* 카드 스택 효과 */}
-          {!showLockCard && currentIndex < campaigns.length - 1 && (
-            <div className="absolute inset-0 translate-y-3 sm:translate-y-4 scale-95 opacity-40">
-              <div className="bg-white rounded-2xl sm:rounded-3xl h-full shadow-2xl" />
+      )
+    },
+    // 슬라이드 4: 작동 방식
+    {
+      id: 'how',
+      content: (
+        <div className="min-h-screen flex items-center justify-center px-4">
+          <div className="max-w-4xl w-full">
+            <h2 className="text-3xl md:text-4xl text-center text-white font-bold mb-16">
+              3초면 충분해요
+            </h2>
+            
+            <div className="grid md:grid-cols-3 gap-8 text-center">
+              {[
+                { icon: "👆", step: "1", title: "스와이프", desc: "맘에 드는 캠페인 선택" },
+                { icon: "💜", step: "2", title: "매칭", desc: "브랜드가 수락하면 성공" },
+                { icon: "💰", step: "3", title: "수익", desc: "수수료 0원으로 진행" }
+              ].map((item, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.1 }}
+                  className="relative"
+                >
+                  <div className="text-6xl mb-4">{item.icon}</div>
+                  <div className="text-purple-400 text-5xl font-bold opacity-20 absolute top-0 left-1/2 -translate-x-1/2">
+                    {item.step}
+                  </div>
+                  <h3 className="text-xl text-white font-medium mb-2">{item.title}</h3>
+                  <p className="text-white/60 text-sm">{item.desc}</p>
+                </motion.div>
+              ))}
             </div>
-          )}
-          {!showLockCard && currentIndex < campaigns.length - 2 && (
-            <div className="absolute inset-0 translate-y-6 sm:translate-y-8 scale-90 opacity-20">
-              <div className="bg-white rounded-2xl sm:rounded-3xl h-full shadow-2xl" />
-            </div>
-          )}
-
-          <AnimatePresence mode="wait">
-            {!showLockCard && currentCampaign ? (
-              <motion.div
-                key={currentCampaign.id}
-                initial={{ scale: 0.9, opacity: 0, y: 30 }}
-                animate={{ 
-                  scale: 1, 
-                  opacity: 1, 
-                  y: 0,
-                  rotate: dragOffset * 0.05
-                }}
-                exit={{
-                  x: direction === 'left' ? -300 : direction === 'right' ? 300 : 0,
-                  opacity: 0,
-                  scale: 0.8,
-                  rotate: direction === 'left' ? -20 : direction === 'right' ? 20 : 0,
-                  transition: { duration: 0.25 }
-                }}
-                drag="x"
-                dragConstraints={{ left: -200, right: 200 }}
-                dragElastic={1}
-                dragMomentum={false}
-                onDrag={(e, info) => setDragOffset(info.offset.x)}
-                onDragEnd={(e, { offset, velocity }) => {
-                  setDragOffset(0);
-                  if (Math.abs(offset.x) > 50 || Math.abs(velocity.x) > 200) {
-                    handleSwipe(offset.x > 0 ? 'right' : 'left');
-                  }
-                }}
-                className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden relative cursor-grab active:cursor-grabbing"
-                style={{ 
-                  height: isMobile ? 'calc(100vh - 200px)' : '650px',
-                  maxHeight: '650px',
-                  minHeight: '500px',
-                  touchAction: 'pan-y'
-                }}
-              >
-                {/* 카드 상단 이미지 영역 */}
-                <div className="relative h-48 sm:h-56 bg-gradient-to-br from-purple-100 to-pink-100">
-                  <Image
-                    src={currentCampaign.imageUrl}
-                    alt={currentCampaign.brand}
-                    fill
-                    className="object-cover"
-                    unoptimized
-                    priority
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-                  
-                  {/* 브랜드 정보 */}
-                  <div className="absolute top-3 left-3 sm:top-4 sm:left-4 flex items-center gap-2 sm:gap-3 bg-white/90 backdrop-blur rounded-full pr-3 sm:pr-4">
-                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gray-200 rounded-full overflow-hidden">
-                      <Image
-                        src={currentCampaign.logoUrl}
-                        alt="logo"
-                        width={48}
-                        height={48}
-                        className="object-cover"
-                        unoptimized
-                      />
-                    </div>
-                    <div>
-                      <p className="font-bold text-gray-900 text-sm sm:text-base">{currentCampaign.brand}</p>
-                      <p className="text-[10px] sm:text-xs text-gray-500">{currentCampaign.brandDesc}</p>
-                    </div>
-                  </div>
-
-                  {/* 카테고리 태그 */}
-                  <div className="absolute top-3 right-3 sm:top-4 sm:right-4">
-                    <span className="px-2 sm:px-3 py-1 bg-purple-600 text-white rounded-full text-xs sm:text-sm font-medium">
-                      {currentCampaign.category}
-                    </span>
-                  </div>
-
-                  {/* 마감일 표시 */}
-                  <div className="absolute bottom-3 right-3">
-                    <span className="px-3 py-1 bg-red-500 text-white rounded-full text-xs font-bold">
-                      {currentCampaign.deadline}
-                    </span>
-                  </div>
-                </div>
-
-                {/* 카드 하단 정보 영역 */}
-                <div className="p-4 sm:p-5 flex flex-col h-[calc(100%-12rem)] sm:h-[calc(100%-14rem)]">
-                  {/* 제목과 설명 */}
-                  <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">
-                    {currentCampaign.title}
-                  </h3>
-                  <p className="text-gray-600 text-sm mb-4 line-clamp-2">
-                    {currentCampaign.description}
-                  </p>
-
-                  {/* 핵심 정보 */}
-                  <div className="flex-1 space-y-3">
-                    {/* 예산 - 크게 표시 */}
-                    <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-4">
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600 text-sm">💰 캠페인 예산</span>
-                        <span className="text-2xl font-bold text-purple-600">
-                          {currentCampaign.budget}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* 나머지 정보 그리드 */}
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="bg-gray-50 rounded-lg p-3">
-                        <div className="text-gray-500 text-xs mb-1">📝 콘텐츠</div>
-                        <div className="text-gray-900 font-semibold text-xs">
-                          {currentCampaign.requirements}
-                        </div>
-                      </div>
-                      
-                      <div className="bg-gray-50 rounded-lg p-3">
-                        <div className="text-gray-500 text-xs mb-1">👥 팔로워</div>
-                        <div className="text-gray-900 font-semibold text-xs">
-                          {currentCampaign.followers}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 하단 정보 */}
-                  <div className="mt-3 pt-3 border-t">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-500">실시간 지원자</span>
-                      <span className="text-xs font-semibold text-purple-600">
-                        {Math.floor(Math.random() * 50 + 10)}명 지원 중
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 드래그 시 인디케이터 */}
-                {dragOffset !== 0 && (
-                  <div className={`absolute top-1/2 -translate-y-1/2 ${
-                    dragOffset > 0 ? 'right-4 sm:right-8' : 'left-4 sm:left-8'
-                  }`}>
-                    <motion.div
-                      animate={{ scale: [1, 1.2, 1] }}
-                      transition={{ repeat: Infinity, duration: 0.5 }}
-                      className={`w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center ${
-                        dragOffset > 0 ? 'bg-green-500' : 'bg-red-500'
-                      }`}
-                    >
-                      <span className="text-xl sm:text-2xl text-white">
-                        {dragOffset > 0 ? '❤️' : '✕'}
-                      </span>
-                    </motion.div>
-                  </div>
-                )}
-              </motion.div>
-            ) : showLockCard ? (
-              // 잠금 카드
-              <motion.div
-                initial={{ scale: 0.9, opacity: 0, y: 30 }}
-                animate={{ scale: 1, opacity: 1, y: 0 }}
-                className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden relative"
-                style={{ 
-                  height: isMobile ? 'calc(100vh - 200px)' : '650px',
-                  maxHeight: '650px',
-                  minHeight: '500px'
-                }}
-              >
-                <div className="p-6 sm:p-8 h-full flex flex-col bg-gradient-to-br from-purple-50 to-pink-50">
-                  <div className="flex-1 flex flex-col items-center justify-center">
-                    <motion.div
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      transition={{ type: "spring", delay: 0.2 }}
-                      className="text-5xl sm:text-7xl mb-4 sm:mb-6"
-                    >
-                      🎉
-                    </motion.div>
-                    
-                    <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3 sm:mb-4 text-center">
-                      모든 캠페인을<br/>확인하셨어요!
-                    </h3>
-                    
-                    <p className="text-gray-600 text-xs sm:text-sm mb-4 sm:mb-6 text-center">
-                      관심 있는 <span className="text-purple-600 font-bold">{swipedCards.length}개</span> 캠페인이<br/>
-                      매칭 대기 중입니다
-                    </p>
-                    
-                    {swipedCards.length > 0 && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="w-full bg-white rounded-lg sm:rounded-xl p-3 sm:p-4 mb-3 sm:mb-4 shadow-lg max-h-40 overflow-y-auto"
-                      >
-                        <p className="text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3 font-medium">
-                          선택한 캠페인
-                        </p>
-                        <div className="space-y-1.5 sm:space-y-2">
-                          {swipedCards.map((card, i) => (
-                            <div key={i} className="flex items-center justify-between bg-purple-50 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2">
-                              <div className="flex items-center gap-1.5 sm:gap-2">
-                                <span className="font-medium text-xs sm:text-sm">
-                                  {card.brand}
-                                </span>
-                              </div>
-                              <span className="text-purple-600 font-bold text-xs sm:text-sm">
-                                {card.budget}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </motion.div>
-                    )}
-                    
-                    <div className="space-y-3 w-full">
-                      <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => {
-                          setShowCategorySelect(true);
-                          setCurrentIndex(0);
-                          setSwipedCards([]);
-                          setShowLockCard(false);
-                        }}
-                        className="w-full px-4 sm:px-6 py-3 bg-white border-2 border-purple-600 text-purple-600 rounded-lg sm:rounded-xl text-sm sm:text-base font-bold"
-                      >
-                        다른 카테고리 보기
-                      </motion.button>
-                      
-                      <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => router.push('/waitlist')}
-                        className="w-full px-4 sm:px-6 py-3 sm:py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg sm:rounded-xl text-base sm:text-lg font-bold shadow-xl hover:shadow-2xl transition-all"
-                      >
-                        무료로 시작하기
-                      </motion.button>
-                    </div>
-                  </div>
-                  
-                  <div className="pt-3 sm:pt-4 text-center">
-                    <p className="text-[10px] sm:text-xs text-red-500 font-medium mb-1">
-                      🔥 선착순 37명 남음
-                    </p>
-                    <p className="text-[10px] sm:text-xs text-gray-400">
-                      평생 수수료 0% · 가입비 없음
-                    </p>
-                  </div>
-                </div>
-              </motion.div>
-            ) : null}
-          </AnimatePresence>
-
-          {/* 버튼들 */}
-          {!showLockCard && currentCampaign && (
-            <div className="flex justify-center gap-12 sm:gap-16 mt-6 sm:mt-8">
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={() => handleSwipe('left')}
-                className="w-16 h-16 sm:w-14 sm:h-14 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-red-500/20 transition-all shadow-lg active:bg-red-500/30"
-              >
-                <span className="text-2xl">✕</span>
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={() => handleSwipe('right')}
-                className="w-16 h-16 sm:w-14 sm:h-14 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-green-500/20 transition-all shadow-lg active:bg-green-500/30"
-              >
-                <span className="text-2xl">❤️</span>
-              </motion.button>
-            </div>
-          )}
+          </div>
         </div>
+      )
+    },
+    // 슬라이드 5: CTA
+    {
+      id: 'cta',
+      content: (
+        <div className="min-h-screen flex items-center justify-center px-4">
+          <div className="text-center max-w-3xl">
+            <motion.div
+              animate={{
+                scale: [1, 1.05, 1],
+              }}
+              transition={{
+                duration: 2,
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
+              className="mb-8"
+            >
+              <div className="inline-block px-6 py-3 bg-red-500/20 rounded-full">
+                <p className="text-red-400 font-bold text-lg">
+                  ⏰ 선착순 마감 임박
+                </p>
+                <p className="text-white text-2xl font-bold mt-1">
+                  37명만 남았습니다
+                </p>
+              </div>
+            </motion.div>
+
+            <h2 className="text-4xl md:text-6xl text-white font-bold mb-6">
+              지금 시작하면
+              <br />
+              <span className="text-purple-400">평생 0%</span>
+            </h2>
+            
+            <p className="text-white/60 text-lg mb-12">
+              30초 가입, 바로 캠페인 확인
+            </p>
+            
+            <button
+          onClick={() => {
+            console.log('클릭!');
+            window.location.href = '/demo';  // 직접 이동
+          }}
+          className="px-12 py-5 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full text-xl font-bold shadow-2xl hover:shadow-purple-600/50 transition-all cursor-pointer relative z-[100]"
+        >
+          인플루언서로 시작하기 →
+        </button>
+            
+            <p className="text-white/40 text-sm mt-6">
+              가입비 없음 · 해지 수수료 없음 · 숨겨진 비용 없음
+            </p>
+          </div>
+        </div>
+      )
+    }
+  ];
+
+  const nextSlide = () => {
+    if (currentSlide < slides.length - 1) {
+      setCurrentSlide(currentSlide + 1);
+    }
+  };
+
+  const prevSlide = () => {
+    if (currentSlide > 0) {
+      setCurrentSlide(currentSlide - 1);
+    }
+  };
+
+  // 터치 이벤트
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > 50;
+    const isRightSwipe = distance < -50;
+
+    if (isLeftSwipe) {
+      nextSlide();
+    }
+    if (isRightSwipe) {
+      prevSlide();
+    }
+  };
+
+  // 키보드 이벤트
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight') nextSlide();
+      if (e.key === 'ArrowLeft') prevSlide();
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentSlide]);
+
+  return (
+    <main 
+      className="bg-black overflow-hidden relative"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* 네비게이션 */}
+      <nav className="fixed top-0 w-full z-50 backdrop-blur-md bg-black/50 border-b border-white/10">
+        <div className="flex justify-between items-center px-8 py-6">
+          <h1 className="text-xl font-light tracking-wide text-white">itda</h1>
+          <div className="flex gap-6">
+            <button
+              onClick={() => router.push('/demo')}
+              className="px-6 py-2 text-sm text-purple-400 hover:text-purple-300 transition-all cursor-pointer"
+            >
+              체험하기
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      {/* 배경 애니메이션 */}
+      <div className="fixed inset-0">
+        <motion.div
+          animate={{
+            scale: [1, 1.2, 1],
+            opacity: [0.3, 0.5, 0.3],
+          }}
+          transition={{
+            duration: 4,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+          className="absolute top-20 left-1/2 -translate-x-1/2 w-96 h-96 bg-purple-600 rounded-full blur-3xl"
+        />
+        <motion.div
+          animate={{
+            scale: [1, 1.3, 1],
+            opacity: [0.2, 0.4, 0.2],
+          }}
+          transition={{
+            duration: 5,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: 0.5
+          }}
+          className="absolute bottom-20 right-20 w-96 h-96 bg-pink-600 rounded-full blur-3xl"
+        />
       </div>
+
+      {/* 슬라이드 콘텐츠 */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={currentSlide}
+          initial={{ opacity: 0, x: 100 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -100 }}
+          transition={{ duration: 0.3 }}
+        >
+          {slides[currentSlide].content}
+        </motion.div>
+      </AnimatePresence>
+
+      {/* 좌우 버튼 */}
+      {currentSlide > 0 && (
+        <button
+          onClick={prevSlide}
+          className="fixed left-8 top-1/2 -translate-y-1/2 z-40 w-14 h-14 bg-white/10 backdrop-blur rounded-full flex items-center justify-center hover:bg-white/20 transition-all cursor-pointer"
+        >
+          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+      )}
+
+      {currentSlide < slides.length - 1 && (
+        <motion.button
+          onClick={nextSlide}
+          animate={{ x: [0, 10, 0] }}
+          transition={{ duration: 1.5, repeat: Infinity }}
+          className="fixed right-8 top-1/2 -translate-y-1/2 z-40 w-14 h-14 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full flex items-center justify-center hover:shadow-lg hover:shadow-purple-500/25 transition-all cursor-pointer"
+        >
+          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </motion.button>
+      )}
 
       {/* 진행 인디케이터 */}
-      <div className="fixed bottom-6 sm:bottom-8 left-1/2 -translate-x-1/2">
-        <div className="flex gap-1.5 sm:gap-2">
-          {campaigns.map((_, i) => (
-            <motion.div
-              key={i}
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: i * 0.1 }}
-              className={`h-1 rounded-full transition-all ${
-                i === currentIndex && !showLockCard
-                  ? 'w-6 sm:w-8 bg-white'
-                  : i < currentIndex || showLockCard
-                  ? 'w-1 bg-white/60'
-                  : 'w-1 bg-white/20'
-              }`}
-            />
-          ))}
-        </div>
+      <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40 flex gap-2">
+        {slides.map((_, index) => (
+          <button
+            key={index}
+            onClick={() => setCurrentSlide(index)}
+            className={`h-2 rounded-full transition-all cursor-pointer ${
+              index === currentSlide
+                ? 'w-8 bg-purple-500'
+                : 'w-2 bg-white/30 hover:bg-white/50'
+            }`}
+          />
+        ))}
       </div>
 
-      {/* 첫 카드일 때 안내 메시지 */}
-      {currentIndex === 0 && !showLockCard && (
+      {/* 모바일 스와이프 힌트 */}
+      {currentSlide === 0 && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 1 }}
-          className="fixed bottom-24 sm:bottom-32 left-1/2 -translate-x-1/2 text-center"
+          transition={{ delay: 2 }}
+          className="fixed bottom-20 left-1/2 -translate-x-1/2 text-white/40 text-sm md:hidden"
         >
-          <p className="text-white/60 text-xs sm:text-sm animate-pulse whitespace-nowrap">
-            ← 관심 없어요　　관심 있어요 →
-          </p>
+          ← 스와이프하여 넘기기 →
         </motion.div>
       )}
     </main>

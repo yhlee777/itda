@@ -1,5 +1,6 @@
-'use client';  // ← 이거 맨 위에 추가!
-import HomePage from './HomePage';
+// app/page.tsx
+'use client';
+const HomePage = require('./HomePage').default;  // CommonJS로 시도
 
 export default function Page() {
   return <HomePage />;
