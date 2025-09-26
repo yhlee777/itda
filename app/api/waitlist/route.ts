@@ -1,27 +1,22 @@
 import { NextResponse } from 'next/server';
 
-// 새 Public BIN ID로 변경
 const API_KEY = '$2a$10$DwuPZ/WzVA5oA4w1t9mG7uPPzHCjY/cg34y78RvqQKxqirGNnTh2u';
-const BIN_ID = '68d62ebc43b1c97be9508078';  // ← 새 Public BIN!
+const BIN_ID = '68d62ebc43b1c97be9508078';  // Public BIN
 
 export async function POST(request: Request) {
   try {
     const data = await request.json();
     
-    // Public BIN 읽기 (API Key 없어도 됨)
+    // Public BIN 읽기
     const getResponse = await fetch(
       `https://api.jsonbin.io/v3/b/${BIN_ID}/latest`
     );
     
     let existingData = [];
     if (getResponse.ok) {
-      const responseText = await getResponse.text();
-      try {
-        const responseData = JSON.parse(responseText);
-        existingData = Array.isArray(responseData) ? responseData : [];
-      } catch {
-        existingData = [];
-      }
+      const responseData = await getResponse.json();
+      // record 필드 안에 실제 데이터가 있음!
+      existingData = responseData.record || [];
     }
     
     // 대기번호 생성
@@ -37,7 +32,7 @@ export async function POST(request: Request) {
     // 데이터 추가
     existingData.push(entry);
     
-    // 저장은 API Key 필요
+    // 저장 (API Key 필요)
     const putResponse = await fetch(
       `https://api.jsonbin.io/v3/b/${BIN_ID}`,
       {
@@ -51,8 +46,6 @@ export async function POST(request: Request) {
     );
     
     if (!putResponse.ok) {
-      const errorText = await putResponse.text();
-      console.error('저장 실패:', errorText);
       throw new Error('저장 실패');
     }
     
@@ -71,7 +64,6 @@ export async function POST(request: Request) {
 
 export async function GET() {
   try {
-    // Public BIN - API Key 없이 읽기
     const response = await fetch(
       `https://api.jsonbin.io/v3/b/${BIN_ID}/latest`
     );
@@ -80,15 +72,9 @@ export async function GET() {
       return NextResponse.json([]);
     }
     
-    const text = await response.text();
-    let waitlist = [];
-    
-    try {
-      const data = JSON.parse(text);
-      waitlist = Array.isArray(data) ? data : [];
-    } catch {
-      waitlist = [];
-    }
+    const data = await response.json();
+    // record 필드에서 데이터 가져오기
+    const waitlist = data.record || [];
     
     // 최신순 정렬
     waitlist.sort((a: any, b: any) => 
