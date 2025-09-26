@@ -406,16 +406,7 @@ export default function HomePage() {
       </AnimatePresence>
 
       {/* 좌우 버튼 */}
-      {currentSlide > 0 && (
-        <button
-          onClick={prevSlide}
-          className="fixed left-8 top-1/2 -translate-y-1/2 z-40 w-14 h-14 bg-white/10 backdrop-blur rounded-full flex items-center justify-center hover:bg-white/20 transition-all cursor-pointer"
-        >
-          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-      )}
+     
 
       {currentSlide < slides.length - 1 && (
         <motion.button
